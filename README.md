@@ -31,4 +31,4 @@ Just put the EXE on a USB stick, run it, and use it in your browser — no insta
 
 ---
 
-Enjoy easier ballast logging 🚢s
+Enjoy easier ballast logging 🚢
