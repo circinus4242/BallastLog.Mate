@@ -1,0 +1,26 @@
+﻿@page
+@model BallastLog.Mate.Pages.Status.IndexModel
+@{
+    ViewData["Title"] = "Status";
+}
+<link rel="stylesheet" href="/site.css" />
+
+<h2>Status</h2>
+
+<form method="post" asp-page-handler="Export" style="margin-bottom:1rem">
+  <button class="btn">Export CSV</button>
+</form>
+
+<table class="table">
+  <thead><tr><th>Tank</th><th>Name</th><th>Current</th><th>Max</th></tr></thead>
+  <tbody>
+  @foreach (var t in Model.Tanks){
+    <tr>
+      <td class="mono">@t.Code</td>
+      <td>@t.Name</td>
+      <td>@t.CurrentCapacity</td>
+      <td>@t.MaxCapacity</td>
+    </tr>
+  }
+  </tbody>
+</table>

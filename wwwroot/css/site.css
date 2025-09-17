@@ -1,0 +1,78 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .table th, .table td {
+        padding: .5rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+.bad {
+    background: #ffe5e5;
+}
+
+.ok {
+    background: #f8fff8;
+}
+
+.flex {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.small {
+    font-size: .9rem;
+    color: #666;
+}
+
+.btn {
+    padding: .4rem .7rem;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    cursor: pointer;
+}
+
+    .btn:hover {
+        background: #f2f2f2;
+    }
+
+.input {
+    padding: .3rem .4rem;
+    border: 1px solid #ccc;
+}
+
+.tag {
+    display: inline-block;
+    padding: .1rem .4rem;
+    border-radius: .3rem;
+    background: #eee;
+}

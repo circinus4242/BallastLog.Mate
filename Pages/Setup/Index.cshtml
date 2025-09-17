@@ -1,0 +1,83 @@
+﻿@page
+@model BallastLog.Mate.Pages.Setup.IndexModel
+@{
+    ViewData["Title"] = "Setup";
+}
+<link rel="stylesheet" href="/site.css" />
+
+<h2>Setup</h2>
+
+@if (TempData["msg"] is string m)
+{
+     <div class="small">@m</div>
+}
+<div asp-validation-summary="ModelOnly" class="small" style="color:#b00"></div>
+
+
+<form method="post" asp-page-handler="SaveProfile" class="flex" style="flex-wrap:wrap">
+    <div>
+        <div>Ship's name</div>
+        <input class="input" asp-for="Profile.ShipName" />
+    </div>
+    <div>
+        <div>Ship's class</div>
+        <input class="input" asp-for="Profile.ShipClass" />
+    </div>
+    <div>
+        <div>Max flowrate (m³/h)</div>
+        <input class="input" asp-for="Profile.MaxFlowRate" type="number" min="0" />
+    </div>
+    <div style="flex-basis:100%"></div>
+    <div><div>Custom 1 label</div><input class="input" asp-for="Profile.Custom1Label" /></div>
+    <div><div>Custom 2 label</div><input class="input" asp-for="Profile.Custom2Label" /></div>
+    <div><div>Custom 3 label</div><input class="input" asp-for="Profile.Custom3Label" /></div>
+    <div><div>Custom 4 label</div><input class="input" asp-for="Profile.Custom4Label" /></div>
+    <div><div>Custom 5 label</div><input class="input" asp-for="Profile.Custom5Label" /></div>
+    <div style="flex-basis:100%"></div>
+    <button class="btn" type="submit">Save profile</button>
+</form>
+
+<hr />
+
+<h3>Tanks</h3>
+<form method="post" asp-page-handler="AddTank" class="flex" style="flex-wrap:wrap">
+    <div><div>Tank ID</div><input class="input" asp-for="NewTank.Code" /></div>
+    <div><div>Tank name</div><input class="input" asp-for="NewTank.Name" /></div>
+    <div><div>Max (m³)</div><input class="input" type="number" asp-for="NewTank.MaxCapacity" /></div>
+    <div><div>Current (m³)</div><input class="input" type="number" asp-for="NewTank.InitialCapacity" /></div>
+    <div><div>Order</div><input class="input" type="number" asp-for="NewTank.Order" /></div>
+    <div style="flex-basis:100%"></div>
+    <button class="btn">Add tank</button>
+</form>
+
+<table class="table">
+    <thead><tr><th>Code</th><th>Name</th><th>Max</th><th>Initial</th><th>Current</th><th></th></tr></thead>
+    <tbody>
+        @foreach (var t in Model.Tanks)
+        {
+            <tr>
+                <td>@t.Code</td>
+                <td>@t.Name</td>
+                <td>@t.MaxCapacity</td>
+                <td>@t.InitialCapacity</td>
+                <td>@t.CurrentCapacity</td>
+                <td>
+                    <form method="post" asp-page-handler="DeleteTank">
+                        <input type="hidden" name="id" value="@t.Id" />
+                        <button class="btn" onclick="return confirm('Delete @t.Code?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<hr />
+
+<form method="post" asp-page-handler="Export">
+    <button class="btn">Export ship profile & tanks (JSON)</button>
+</form>
+<form method="post" asp-page-handler="Import" enctype="multipart/form-data">
+    <input type="file" name="file" />
+    <button class="btn">Import JSON</button>
+</form>

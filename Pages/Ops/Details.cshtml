@@ -1,0 +1,38 @@
+﻿@page
+@model BallastLog.Mate.Pages.Ops.DetailsModel
+<link rel="stylesheet" href="/site.css" />
+<h2>Operation report</h2>
+
+<div class="small">State: <span class="tag">@Model.Op.State</span> | Flow: @Model.Op.FlowRate.ToString("0.##") m³/h</div>
+
+<table class="table">
+    <tr><th>Type</th><td class="mono">@Model.Op.Type</td></tr>
+    <tr><th>Start</th><td>@Model.Op.StartLocal.ToString("dd-MMM-yyyy HH:mm") (TZ @Model.Op.TzOffset)</td></tr>
+    <tr><th>Stop</th><td>@Model.Op.StopLocal.ToString("dd-MMM-yyyy HH:mm")</td></tr>
+    <tr><th>Locations</th><td>@Model.Op.LocationStart → @Model.Op.LocationStop</td></tr>
+    <tr><th>BWTS</th><td>@(Model.Op.BwtsUsed ? "YES" : "NO")</td></tr>
+    <tr><th>Total</th><td>@Model.Op.TotalAmount m³</td></tr>
+    <tr><th>Remark</th><td>@Model.Op.Remark</td></tr>
+</table>
+
+<h3>Legs</h3>
+<table class="table">
+    <thead><tr><th>Dir</th><th>Tank</th><th>Δ (m³)</th><th>Before</th><th>After</th></tr></thead>
+    <tbody>
+        @foreach (var l in Model.Op.Legs.OrderBy(x => x.Direction))
+        {
+            <tr>
+                <td>@(l.Direction == BallastLog.Mate.Models.LegDir.From ? "FROM" : "TO")</td>
+                <td>@(l.IsSea ? "SEA" : $"{l.Tank!.Code} - {l.Tank.Name}")</td>
+                <td>@l.Delta</td>
+                <td>@(l.IsSea ? "-" : l.VolumeBefore)</td>
+                <td>@(l.IsSea ? "-" : l.VolumeAfter)</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p>
+    <a class="btn" href="/Ops/Edit?id=@Model.Op.Id">Edit</a>
+    <a class="btn" href="/Ops">Back</a>
+</p>

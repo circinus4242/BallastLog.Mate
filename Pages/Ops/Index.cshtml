@@ -1,0 +1,64 @@
+﻿@page
+@model BallastLog.Mate.Pages.Ops.IndexModel
+@{
+    ViewData["Title"] = "Operations";
+}
+<link rel="stylesheet" href="/site.css" />
+
+<h2>Operations</h2>
+
+<p>
+    <a class="btn" href="/Ops/Create">New operation</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Start</th>
+            <th>Stop</th>
+            <th>Loc S</th>
+            <th>Loc E</th>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Total</th>
+            <th>State</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var r in Model.Ops)
+        {
+            var cls = r.State == BallastLog.Mate.Models.OpState.Ok ? "ok" : "bad";
+            <tr class="@cls">
+                <td>@r.Start.ToString("dd-MMM-yyyy HH:mm")</td>
+                <td>@r.Stop.ToString("dd-MMM-yyyy HH:mm")</td>
+                <td>@r.LocS</td>
+                <td>@r.LocE</td>
+                <td class="mono">@r.Type</td>
+                <td>@r.TanksFrom</td>
+                <td>@r.TanksTo</td>
+                <td>@r.Total</td>
+                <td>@r.State</td>
+                <td class="flex">
+                    <a class="btn" href="/Ops/Details?id=@r.Id">Report</a>
+                    <a class="btn" href="/Ops/Edit?id=@r.Id">Edit</a>
+                    <form method="post" asp-page-handler="Mark">
+                        <input type="hidden" name="id" value="@r.Id" />
+                        <input type="hidden" name="which" value="log" />
+                        <button class="btn">@((r.RecLog) ? "Log✓" : "Log")</button>
+                    </form>
+                    <form method="post" asp-page-handler="Mark">
+                        <input type="hidden" name="id" value="@r.Id" />
+                        <input type="hidden" name="which" value="fm" />
+                        <button class="btn">@((r.RecFm) ? "FM✓" : "FM")</button>
+                    </form>
+                    <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete operation?')">
+                        <input type="hidden" name="id" value="@r.Id" />
+                        <button class="btn">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
