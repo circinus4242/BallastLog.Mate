@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using BallastLog.Mate.Data;
 using BallastLog.Mate.Models;
 using BallastLog.Mate.Services;
@@ -8,12 +8,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BallastLog.Mate.Pages.Ops;
 
-public class CreateModel : PageModel
+public class EditModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly RecalcService _recalc;
 
-    public CreateModel(AppDbContext db, RecalcService recalc)
+    public EditModel(AppDbContext db, RecalcService recalc)
     { _db = db; _recalc = recalc; }
 
     public class LegVm
@@ -21,12 +21,16 @@ public class CreateModel : PageModel
         public string Label { get; set; } = "";
         public Guid? TankId { get; set; }
         public bool IsSea { get; set; }
-        public int Current { get; set; }
+        public int Current { get; set; }  // current BEFORE this op (preview only)
         public int Max { get; set; }
         public int Delta { get; set; }
     }
 
-    // bind datetime-local as strings, we parse them
+    // Route param / query
+    [BindProperty(SupportsGet = true)]
+    public Guid Id { get; set; }
+
+    // bind datetime-local as strings, parsed manually
     [BindProperty] public string StartLocalStr { get; set; } = "";
     [BindProperty] public string StopLocalStr { get; set; } = "";
 
@@ -45,20 +49,6 @@ public class CreateModel : PageModel
     public string C4Label { get; set; } = "Custom 4";
     public string C5Label { get; set; } = "Custom 5";
 
-    public async Task OnGet()
-    {
-        await LoadLookupsAsync();
-
-        var now = DateTime.Now;
-        now = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
-        StartLocalStr = now.AddMinutes(-5).ToString("yyyy-MM-ddTHH:mm");
-        StopLocalStr = now.ToString("yyyy-MM-ddTHH:mm");
-
-        Op.Type = OpType.B;
-        Op.BwtsUsed = true;
-        Op.TzOffset = "+02:00";
-    }
-
     private async Task LoadLookupsAsync()
     {
         var prof = await _db.ShipProfiles.FirstAsync(p => p.Id == 1);
@@ -73,7 +63,6 @@ public class CreateModel : PageModel
 
     private void Normalize()
     {
-        // strip empty placeholders; clamp >=0
         From = (From ?? new()).Where(l => l.IsSea || l.TankId.HasValue).ToList();
         To = (To ?? new()).Where(l => l.IsSea || l.TankId.HasValue).ToList();
         foreach (var l in From) l.Delta = Math.Max(0, l.Delta);
@@ -82,10 +71,66 @@ public class CreateModel : PageModel
     }
 
     private static bool TryParseLocal(string s, out DateTime dt)
-        => DateTime.TryParseExact(s, "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture,
-                                  DateTimeStyles.None, out dt);
+        => DateTime.TryParseExact(s, "yyyy-MM-ddTHH:mm",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out dt);
 
-    // prevent duplicates: helper
+    public async Task<IActionResult> OnGet()
+    {
+        await LoadLookupsAsync();
+
+        var entity = await _db.Operations
+            .Include(o => o.Legs).ThenInclude(l => l.Tank)
+            .FirstOrDefaultAsync(o => o.Id == Id);
+        if (entity == null) return RedirectToPage("Index");
+
+        // Map op
+        Op = new Operation
+        {
+            Id = entity.Id,
+            Type = entity.Type,
+            BwtsUsed = entity.BwtsUsed,
+            TzOffset = entity.TzOffset,
+            LocationStart = entity.LocationStart,
+            LocationStop = entity.LocationStop,
+            Remark = entity.Remark,
+            Custom1 = entity.Custom1,
+            Custom2 = entity.Custom2,
+            Custom3 = entity.Custom3,
+            Custom4 = entity.Custom4,
+            Custom5 = entity.Custom5
+        };
+
+        StartLocalStr = entity.StartLocal.ToString("yyyy-MM-ddTHH:mm");
+        StopLocalStr = entity.StopLocal.ToString("yyyy-MM-ddTHH:mm");
+        Total = entity.TotalAmount;
+
+        // Map legs
+        foreach (var l in entity.Legs.Where(x => x.Direction == LegDir.From))
+            From.Add(new LegVm
+            {
+                Label = l.IsSea ? "SEA" : l.Tank!.Code,
+                TankId = l.IsSea ? null : l.TankId,
+                IsSea = l.IsSea,
+                Current = l.IsSea ? 0 : l.VolumeBefore,
+                Max = l.IsSea ? 0 : l.Tank!.MaxCapacity,
+                Delta = l.Delta
+            });
+        foreach (var l in entity.Legs.Where(x => x.Direction == LegDir.To))
+            To.Add(new LegVm
+            {
+                Label = l.IsSea ? "SEA" : l.Tank!.Code,
+                TankId = l.IsSea ? null : l.TankId,
+                IsSea = l.IsSea,
+                Current = l.IsSea ? 0 : l.VolumeBefore,
+                Max = l.IsSea ? 0 : l.Tank!.MaxCapacity,
+                Delta = l.Delta
+            });
+
+        return Page();
+    }
+
+    // Helpers used by Add/Remove/Rebalance/Save (same as Create)
+
     private static HashSet<Guid> TankIds(IEnumerable<LegVm> legs)
         => legs.Where(l => !l.IsSea && l.TankId.HasValue).Select(l => l.TankId!.Value).ToHashSet();
 
@@ -108,8 +153,8 @@ public class CreateModel : PageModel
 
         if (Guid.TryParse(choice, out var id))
         {
-            var existsSet = side == "from" ? TankIds(From) : TankIds(To);
-            if (existsSet.Contains(id)) return Page(); // already added, ignore
+            var exists = side == "from" ? TankIds(From) : TankIds(To);
+            if (exists.Contains(id)) return Page();
 
             var t = TankChoices.FirstOrDefault(x => x.Id == id);
             if (t != null)
@@ -187,10 +232,9 @@ public class CreateModel : PageModel
     public async Task<IActionResult> OnPostSave()
     {
         await LoadLookupsAsync();
-        ModelState.Clear();   // clear binder noise
+        ModelState.Clear();
         Normalize();
 
-        // parse times
         if (!TryParseLocal(StartLocalStr, out var start))
             ModelState.AddModelError(string.Empty, "Start time is invalid.");
         if (!TryParseLocal(StopLocalStr, out var stop))
@@ -207,7 +251,7 @@ public class CreateModel : PageModel
             _ => Op.BwtsUsed
         };
 
-        // Auto-insert SEA for B/DB
+        // Auto SEA for B/DB if missing
         if (Op.Type == OpType.B && !From.Any())
             From.Add(new LegVm { Label = "SEA", IsSea = true, Delta = Math.Max(Total, To.Sum(l => l.Delta)) });
         if (Op.Type == OpType.DB && !To.Any())
@@ -221,31 +265,33 @@ public class CreateModel : PageModel
         if (Op.Type == OpType.TR && (From.Any(l => l.IsSea) || To.Any(l => l.IsSea)))
             ModelState.AddModelError(string.Empty, "For INTERNAL TRANSFER, SEA is not allowed.");
 
-        // totals
         Total = Math.Max(Total, Math.Max(From.Sum(l => l.Delta), To.Sum(l => l.Delta)));
         if (Total == 0) ModelState.AddModelError(string.Empty, "Total amount must be > 0.");
 
         if (!ModelState.IsValid) return Page();
 
-        var entity = new Operation
-        {
-            StartLocal = start,
-            StopLocal = stop,
-            TzOffset = Op.TzOffset,
-            LocationStart = Op.LocationStart,
-            LocationStop = Op.LocationStop,
-            Type = Op.Type,
-            BwtsUsed = Op.BwtsUsed,
-            Remark = Op.Remark,
-            Custom1 = Op.Custom1,
-            Custom2 = Op.Custom2,
-            Custom3 = Op.Custom3,
-            Custom4 = Op.Custom4,
-            Custom5 = Op.Custom5,
-            TotalAmount = Total,
-            UpdatedUtc = DateTime.UtcNow
-        };
+        var entity = await _db.Operations
+            .Include(o => o.Legs)
+            .FirstOrDefaultAsync(o => o.Id == Id);
+        if (entity == null) return RedirectToPage("Index");
 
+        // Update fields
+        entity.StartLocal = start;
+        entity.StopLocal = stop;
+        entity.TzOffset = Op.TzOffset;
+        entity.LocationStart = Op.LocationStart;
+        entity.LocationStop = Op.LocationStop;
+        entity.Type = Op.Type;
+        entity.BwtsUsed = Op.BwtsUsed;
+        entity.Remark = Op.Remark;
+        entity.Custom1 = Op.Custom1; entity.Custom2 = Op.Custom2; entity.Custom3 = Op.Custom3;
+        entity.Custom4 = Op.Custom4; entity.Custom5 = Op.Custom5;
+        entity.TotalAmount = Total;
+        entity.UpdatedUtc = DateTime.UtcNow;
+
+        // Replace legs
+        _db.OperationLegs.RemoveRange(entity.Legs);
+        entity.Legs.Clear();
         foreach (var f in From)
             entity.Legs.Add(new OperationLeg
             {
@@ -263,10 +309,8 @@ public class CreateModel : PageModel
                 Delta = Math.Max(0, t.Delta)
             });
 
-        _db.Operations.Add(entity);
         await _db.SaveChangesAsync();
         await _recalc.RecalculateAllAsync();
-
-        return RedirectToPage("Index"); // ✅ redirect after save
+        return RedirectToPage("Index");
     }
 }
