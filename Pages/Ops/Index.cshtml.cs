@@ -28,12 +28,12 @@ public class IndexModel : PageModel
 
         Ops = list.Select(o =>
         {
-            string from = string.Join(",", o.Legs.Where(l => l.Direction == LegDir.From)
+            string from = string.Join(", ", o.Legs.Where(l => l.Direction == LegDir.From)
                                                  .Select(l => l.IsSea ? "SEA" : l.Tank!.Code));
-            string to = string.Join(",", o.Legs.Where(l => l.Direction == LegDir.To)
+            string to = string.Join(", ", o.Legs.Where(l => l.Direction == LegDir.To)
                                                .Select(l => l.IsSea ? "SEA" : l.Tank!.Code));
             return new Row(o.Id, o.StartLocal, o.StopLocal, o.LocationStart, o.LocationStop,
-                           o.Type, from, to, o.TotalAmount, o.State, o.RecordedToLogBook, o.RecordedToFm123);
+                           o.Type, from, to, o.TotalAmount, o.State, o.RecordedToLogBook, o.RecordedToFm232);
         }).ToList();
     }
 
@@ -42,7 +42,7 @@ public class IndexModel : PageModel
         var op = await _db.Operations.FindAsync(id);
         if (op == null) return RedirectToPage();
         if (which == "log") op.RecordedToLogBook = !op.RecordedToLogBook;
-        if (which == "fm") op.RecordedToFm123 = !op.RecordedToFm123;
+        if (which == "fm") op.RecordedToFm232 = !op.RecordedToFm232;
         op.UpdatedUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return RedirectToPage();

@@ -1,0 +1,26 @@
+﻿@page
+@model BallastLog.Mate.Pages.Reports.LogOld.IndexModel
+@{
+    ViewData["Title"] = "Ballast Log (old) range";
+}
+<h2>Ballast Log Book (old) - range</h2>
+
+<form method="get" class="flex" style="gap:1rem; align-items:flex-end; flex-wrap:wrap">
+    <div><div>From (date)</div><input type="date" class="input" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" /></div>
+    <div><div>To (date)</div><input type="date" class="input" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" /></div>
+    <div><button class="btn" type="submit">Apply</button></div>
+</form>
+
+<table class="table small">
+    <thead><tr><th style="width:12rem">Date</th><th style="width:6rem">Item</th><th>Record of operation / signature</th></tr></thead>
+    <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr>
+                <td>@r.Date</td>
+                <td>@r.Item</td>
+                <td style="white-space:pre-line">@r.Record</td>
+            </tr>
+        }
+    </tbody>
+</table>

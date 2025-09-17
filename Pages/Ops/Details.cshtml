@@ -1,38 +1,133 @@
 ﻿@page
 @model BallastLog.Mate.Pages.Ops.DetailsModel
+@{
+    ViewData["Title"] = "Operation details";
+}
 <link rel="stylesheet" href="/site.css" />
-<h2>Operation report</h2>
 
-<div class="small">State: <span class="tag">@Model.Op.State</span> | Flow: @Model.Op.FlowRate.ToString("0.##") m³/h</div>
+<h2>Operation details</h2>
 
-<table class="table">
-    <tr><th>Type</th><td class="mono">@Model.Op.Type</td></tr>
-    <tr><th>Start</th><td>@Model.Op.StartLocal.ToString("dd-MMM-yyyy HH:mm") (TZ @Model.Op.TzOffset)</td></tr>
-    <tr><th>Stop</th><td>@Model.Op.StopLocal.ToString("dd-MMM-yyyy HH:mm")</td></tr>
-    <tr><th>Locations</th><td>@Model.Op.LocationStart → @Model.Op.LocationStop</td></tr>
-    <tr><th>BWTS</th><td>@(Model.Op.BwtsUsed ? "YES" : "NO")</td></tr>
-    <tr><th>Total</th><td>@Model.Op.TotalAmount m³</td></tr>
-    <tr><th>Remark</th><td>@Model.Op.Remark</td></tr>
-</table>
+<div style="margin-bottom:1rem">
+    <div><b>Type:</b> @Model.Op.Type</div>
+    <div><b>Start (local):</b> @Model.Op.StartLocal</div>
+    <div><b>Stop (local):</b> @Model.Op.StopLocal</div>
+    <div><b>Time zone:</b> @Model.Op.TzOffset</div>
+    <div><b>BWTS used:</b> @(Model.Op.BwtsUsed ? "Yes" : "No")</div>
+    <div><b>Location start:</b> @Model.Op.LocationStart</div>
+    <div><b>Location stop:</b> @Model.Op.LocationStop</div>
+    @if (Model.Op.MinDepth.HasValue)
+    {
+        <div><b>Minimum depth:</b> @Model.Op.MinDepth</div>
+    }
+    @if (Model.Op.DistanceNearestLand.HasValue)
+    {
+        <div><b>Distance to nearest land:</b> @Model.Op.DistanceNearestLand</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.Op.Remark))
+    {
+        <div><b>Remark:</b> @Model.Op.Remark</div>
+    }
+</div>
 
-<h3>Legs</h3>
-<table class="table">
-    <thead><tr><th>Dir</th><th>Tank</th><th>Δ (m³)</th><th>Before</th><th>After</th></tr></thead>
+<h3>FM-232 BALLAST WATER LOG</h3>
+<table class="table small">
+    <thead>
+        <tr>
+            <th>Tank ID</th>
+            <th>Date</th>
+            <th>Location</th>
+            <th>Time start</th>
+            <th>Initial</th>
+            <th>Est Uptake Sea</th>
+            <th>Est Intake Rec</th>
+            <th>Est Circ/Treated</th>
+            <th>Est Disch Sea</th>
+            <th>Est Disch PRF</th>
+            <th>Final</th>
+            <th>Time Completed</th>
+            <th>Method</th>
+            <th>Sea Depth</th>
+            <th>Dist Nearest land</th>
+            <th>OIC</th>
+            <th>Remarks</th>
+        </tr>
+    </thead>
     <tbody>
-        @foreach (var l in Model.Op.Legs.OrderBy(x => x.Direction))
+        @foreach (var r in Model.Fm232.OrderBy(x => x.TankOrder))
         {
             <tr>
-                <td>@(l.Direction == BallastLog.Mate.Models.LegDir.From ? "FROM" : "TO")</td>
-                <td>@(l.IsSea ? "SEA" : $"{l.Tank!.Code} - {l.Tank.Name}")</td>
-                <td>@l.Delta</td>
-                <td>@(l.IsSea ? "-" : l.VolumeBefore)</td>
-                <td>@(l.IsSea ? "-" : l.VolumeAfter)</td>
+                <td>@r.TankCode</td>
+                <td>@r.DateStop</td>
+                <td>@r.Location</td>
+                <td>@r.TimeStart</td>
+                <td>@r.Initial</td>
+                <td>@r.EstUptakeSea</td>
+                <td>@r.EstIntakeReception</td>
+                <td>@r.EstCirculated</td>
+                <td>@r.EstDischargedSea</td>
+                <td>@r.EstDischargedReception</td>
+                <td>@r.Final</td>
+                <td>@r.TimeCompleted</td>
+                <td>@r.Method</td>
+                <td>@r.SeaDepth</td>
+                <td>@r.DistNearestLand</td>
+                <td>@r.Oic</td>
+                <td style="white-space:pre-line">@r.Remarks</td>
+            </tr>
+        }
+    </tbody>
+</table>
+<form method="post">
+    <input type="hidden" name="id" value="@Model.Op.Id" />
+    <button class="btn" formaction="?handler=MarkFm232" formmethod="post">
+        @(Model.Op.RecordedToFm232 ? "FM-232: recorded" : "Mark FM-232 as recorded")
+    </button>
+</form>
+
+<hr />
+
+<h3>BALLAST LOG BOOK (old version)</h3>
+<table class="table small">
+    <thead><tr><th style="width:12rem">Date</th><th style="width:6rem">Item</th><th>Record of operation / signature</th></tr></thead>
+    <tbody>
+        @for (int i = 0; i < Model.OldLog.Count; i++)
+        {
+            var r = Model.OldLog[i];
+            <tr>
+                <td>@r.Date</td>
+                <td>@r.Item</td>
+                <td style="white-space:pre-line">@r.Record</td>
             </tr>
         }
     </tbody>
 </table>
 
-<p>
-    <a class="btn" href="/Ops/Edit?id=@Model.Op.Id">Edit</a>
+<hr />
+
+<h3>BALLAST LOG BOOK (new version)</h3>
+<table class="table small">
+    <thead><tr><th style="width:12rem">Date</th><th style="width:6rem">Code</th><th style="width:6rem">Item</th><th>Record of operation / signature</th></tr></thead>
+    <tbody>
+        @for (int i = 0; i < Model.NewLog.Count; i++)
+        {
+            var r = Model.NewLog[i];
+            <tr>
+                <td>@r.Date</td>
+                <td>@r.Code</td>
+                <td>@r.Item</td>
+                <td style="white-space:pre-line">@r.Record</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<form method="post" style="margin-top:.5rem">
+    <input type="hidden" name="id" value="@Model.Op.Id" />
+    <button class="btn" formaction="?handler=MarkLog" formmethod="post">
+        @(Model.Op.RecordedToLogBook ? "LOG: recorded" : "Mark LOG as recorded")
+    </button>
+</form>
+
+<div style="margin-top:1rem">
     <a class="btn" href="/Ops">Back</a>
-</p>
+</div>

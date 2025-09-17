@@ -19,6 +19,8 @@ public class Operation
     public bool BwtsUsed { get; set; }
     [MaxLength(1000)]
     public string? Remark { get; set; }
+    public int? MinDepth { get; set; }
+    public int? DistanceNearestLand { get; set; }
     public string? Custom1 { get; set; }
     public string? Custom2 { get; set; }
     public string? Custom3 { get; set; }
@@ -28,7 +30,7 @@ public class Operation
     public int TotalAmount { get; set; }
     public double FlowRate { get; set; }
     public bool RecordedToLogBook { get; set; }
-    public bool RecordedToFm123 { get; set; }
+    public bool RecordedToFm232 { get; set; }
     public OpState State { get; set; } = OpState.Ok;
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;

@@ -1,0 +1,80 @@
+﻿@page
+@model BallastLog.Mate.Pages.Reports.Fm232.IndexModel
+@{
+    ViewData["Title"] = "FM-232 (range)";
+}
+<h2>FM-232 (range)</h2>
+
+<form method="get" class="flex" style="gap:1rem; align-items:flex-end; flex-wrap:wrap">
+    <div><div>From (date)</div><input type="date" class="input" asp-for="FromDate" /></div>
+    <div><div>To (date)</div><input type="date" class="input" asp-for="ToDate" /></div>
+    <div>
+        <div>Tank</div>
+        <select class="input" asp-for="TankId">
+            <option value="">All tanks</option>
+            @foreach (var t in Model.Tanks)
+            {
+                <option value="@t.Id">@t.Code</option>
+            }
+        </select>
+    </div>
+    <div><button class="btn" type="submit">Apply</button></div>
+</form>
+
+<div style="margin: .5rem 0;">
+    <form method="post" class="flex" style="gap:.5rem; flex-wrap:wrap">
+        <input type="hidden" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="tankId" value="@Model.TankId" />
+        <button class="btn" formaction="?handler=ExportCsv">Export CSV</button>
+        <button class="btn" formaction="?handler=ExportPdf">Export PDF (A4 landscape)</button>
+    </form>
+</div>
+
+<table class="table small">
+    <thead>
+        <tr>
+            <th>Tank</th>
+            <th>Date</th>
+            <th>Location</th>
+            <th>Start</th>
+            <th>Initial</th>
+            <th>UptakeSea</th>
+            <th>IntakePRF</th>
+            <th>Circ/Treat</th>
+            <th>DischSea</th>
+            <th>DischPRF</th>
+            <th>Final</th>
+            <th>Completed</th>
+            <th>Method</th>
+            <th>Depth</th>
+            <th>Dist NL</th>
+            <th>OIC</th>
+            <th>Remarks</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var r in Model.Rows)
+        {
+            <tr>
+                <td>@r.TankCode</td>
+                <td>@r.StopLocal.ToString("dd/MM/yy")</td>
+                <td>@r.Location</td>
+                <td>@r.TimeStart</td>
+                <td>@r.Initial</td>
+                <td>@r.EstUptakeSea</td>
+                <td>@r.EstIntakeReception</td>
+                <td>@r.EstCirculated</td>
+                <td>@r.EstDischargedSea</td>
+                <td>@r.EstDischargedReception</td>
+                <td>@r.Final</td>
+                <td>@r.TimeCompleted</td>
+                <td>@r.Method</td>
+                <td>@r.SeaDepth</td>
+                <td>@r.DistNearestLand</td>
+                <td>@r.Oic</td>
+                <td style="white-space:pre-line">@r.Remarks</td>
+            </tr>
+        }
+    </tbody>
+</table>

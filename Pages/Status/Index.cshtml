@@ -12,7 +12,7 @@
 </form>
 
 <table class="table">
-  <thead><tr><th>Tank</th><th>Name</th><th>Current</th><th>Max</th></tr></thead>
+  <thead><tr><th>Tank</th><th>Name</th><th>Current</th><th>Max</th><th>Percent filled</th></tr></thead>
   <tbody>
   @foreach (var t in Model.Tanks){
     <tr>
@@ -20,6 +20,7 @@
       <td>@t.Name</td>
       <td>@t.CurrentCapacity</td>
       <td>@t.MaxCapacity</td>
+      <td>(@t.CurrentCapacity / @t.MaxCapacity) * 100</td>
     </tr>
   }
   </tbody>

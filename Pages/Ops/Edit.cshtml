@@ -8,156 +8,189 @@
 <h2>Edit operation</h2>
 
 <form id="mainForm" method="post">
-    <div asp-validation-summary="All" class="small" style="color:#b00"></div>
+  <div asp-validation-summary="All" class="small" style="color:#b00"></div>
 
-    <div class="flex" style="flex-wrap:wrap">
-        <div>
-            <div>Type</div>
-            <select class="input" asp-for="Op.Type">
-                <option value="B">BALLAST (B)</option>
-                <option value="DB">DEBALLAST (DB)</option>
-                <option value="TR">INTERNAL (TR)</option>
-                <option value="MISC">MISC</option>
-            </select>
-        </div>
-        <div>
-            <div>Start (local)</div>
-            <input class="input" type="datetime-local" step="60" name="StartLocalStr" value="@Model.StartLocalStr" />
-        </div>
-        <div>
-            <div>Stop (local)</div>
-            <input class="input" type="datetime-local" step="60" name="StopLocalStr" value="@Model.StopLocalStr" />
-        </div>
-        <div>
-            <div>Time zone (±HH:MM)</div>
-            <input class="input mono" asp-for="Op.TzOffset" />
-        </div>
-
-        <div style="flex-basis:100%"></div>
-        <div><div>Location start</div><input class="input" asp-for="Op.LocationStart" /></div>
-        <div><div>Location stop</div><input class="input" asp-for="Op.LocationStop" /></div>
-        <div style="flex-basis:100%"></div>
-        <div><div>Remark</div><input class="input" asp-for="Op.Remark" style="min-width:400px" /></div>
-        <div style="flex-basis:100%"></div>
-
-        <div><div>@Model.C1Label</div><input class="input" asp-for="Op.Custom1" /></div>
-        <div><div>@Model.C2Label</div><input class="input" asp-for="Op.Custom2" /></div>
-        <div><div>@Model.C3Label</div><input class="input" asp-for="Op.Custom3" /></div>
-        <div><div>@Model.C4Label</div><input class="input" asp-for="Op.Custom4" /></div>
-        <div><div>@Model.C5Label</div><input class="input" asp-for="Op.Custom5" /></div>
+  <div class="flex" style="flex-wrap:wrap; gap:1rem">
+    <div>
+      <div>Type</div>
+      <select class="input" asp-for="Op.Type" id="opType">
+        <option value="B">BALLAST (B)</option>
+        <option value="DB">DEBALLAST (DB)</option>
+        <option value="TR">INTERNAL (TR)</option>
+        <option value="MISC">MISC</option>
+      </select>
+    </div>
+    <div>
+      <div>Start (local)</div>
+      <input class="input" type="datetime-local" step="60" name="StartLocalStr" value="@Model.StartLocalStr" />
+    </div>
+    <div>
+      <div>Stop (local)</div>
+      <input class="input" type="datetime-local" step="60" name="StopLocalStr" value="@Model.StopLocalStr" />
+    </div>
+    <div>
+      <div>Time zone (+-HH:MM)</div>
+      <input class="input mono" asp-for="Op.TzOffset" />
+    </div>
+    <div style="align-self:end">
+      <label style="display:flex;align-items:center;gap:.4rem">
+        <input type="checkbox" asp-for="Op.BwtsUsed" id="bwts" />
+        BWTS used
+      </label>
     </div>
 
-    <hr />
+    <div style="flex-basis:100%"></div>
+    <div><div>Location start</div><input class="input" asp-for="Op.LocationStart" /></div>
+    <div><div>Location stop</div><input class="input" asp-for="Op.LocationStop" /></div>
+    <div style="flex-basis:100%"></div>
 
-    <div class="flex" style="align-items:flex-start">
-        <!-- FROM -->
-        <div style="width:40%">
-            <h3>FROM</h3>
-            <div class="small">Add tanks (or SEA)</div>
-            <div class="flex">
-                <select class="input" name="targetFrom" form="mainForm">
-                    <option value="SEA">SEA</option>
+    <div><div>Remark</div><input class="input" asp-for="Op.Remark" style="min-width:420px" /></div>
+    <div style="flex-basis:100%"></div>
+
+    <div><div>Minimum depth</div><input class="input mono" asp-for="Op.MinDepth" type="number" /></div>
+    <div><div>Distance to nearest land</div><input class="input mono" asp-for="Op.DistanceNearestLand" type="number" /></div>
+
+    <div style="flex-basis:100%"></div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.C1Label))
+        {
+            <div><div>@Model.C1Label</div><input class="input" asp-for="Op.Custom1" /></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.C2Label))
+        {
+            <div><div>@Model.C2Label</div><input class="input" asp-for="Op.Custom2" /></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.C3Label))
+        {
+            <div><div>@Model.C3Label</div><input class="input" asp-for="Op.Custom3" /></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.C4Label))
+        {
+            <div><div>@Model.C4Label</div><input class="input" asp-for="Op.Custom4" /></div>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.C5Label))
+        {
+            <div><div>@Model.C5Label</div><input class="input" asp-for="Op.Custom5" /></div>
+        }
+  </div>
+
+  <hr/>
+
+  <div class="flex" style="align-items:flex-start">
+    <!-- FROM -->
+    <div style="width:40%">
+      <h3>FROM</h3>
+      <div class="small">Add tanks (or SEA)</div>
+      <div class="flex">
+        <select class="input" name="targetFrom" form="mainForm">
+          <option value="SEA">SEA</option>
                     @{
                         var fromIds = new HashSet<Guid>(Model.From.Where(x => !x.IsSea && x.TankId.HasValue).Select(x => x.TankId!.Value));
+                        var toIds = new HashSet<Guid>(Model.To.Where(x => !x.IsSea && x.TankId.HasValue).Select(x => x.TankId!.Value));
+                        fromIds.UnionWith(toIds);
                     }
                     @foreach (var t in Model.TankChoices.Where(t => !fromIds.Contains(t.Id)))
                     {
-                        <option value="@t.Id">@t.Code (@t.CurrentCapacity/@t.MaxCapacity)</option>
+                <option value="@t.Id">@t.Code (@t.CurrentCapacity/@t.MaxCapacity)</option>
                     }
-                </select>
-                <button class="btn" type="submit" formaction="?handler=AddLeg" formmethod="post" name="side" value="from">Add</button>
-            </div>
+        </select>
+        <button class="btn" type="submit" formaction="?handler=AddLeg" formmethod="post" name="side" value="from">Add</button>
+      </div>
 
-            <table class="table">
-                <thead><tr><th>Tank</th><th>Cur/Max</th><th>m3</th><th></th></tr></thead>
-                <tbody>
+      <table class="table">
+        <thead><tr><th>Tank</th><th>Cur/Max</th><th>m3</th><th></th></tr></thead>
+        <tbody>
                     @for (int i = 0; i < Model.From.Count; i++)
                     {
                         var after = Model.From[i].IsSea ? 0 : Math.Clamp(Model.From[i].Current - Model.From[i].Delta, 0, Model.From[i].Max);
-                        <tr>
-                            <td>@Model.From[i].Label</td>
-                            <td>@(Model.From[i].IsSea ? "-" : $"{after}/{Model.From[i].Max}")</td>
-                            <td><input class="input mono" type="number" min="0" name="From[@i].Delta" value="@Model.From[i].Delta" /></td>
-                            <td class="flex" style="gap:.5rem">
-                                <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=from&index=@i" formmethod="post">OK</button>
-                                <button class="btn" type="submit" formaction="?handler=RemoveLeg&side=from&index=@i" formmethod="post">Delete</button>
-                                <input type="hidden" name="From[@i].Label" value="@Model.From[i].Label" />
-                                <input type="hidden" name="From[@i].TankId" value="@Model.From[i].TankId" />
-                                <input type="hidden" name="From[@i].IsSea" value="@(Model.From[i].IsSea ? "true" : "false")" />
-                                <input type="hidden" name="From[@i].Current" value="@Model.From[i].Current" />
-                                <input type="hidden" name="From[@i].Max" value="@Model.From[i].Max" />
-                            </td>
-                        </tr>
+              <tr>
+                <td>@Model.From[i].Label</td>
+                <td>@(Model.From[i].IsSea ? "-" : $"{after}/{Model.From[i].Max}")</td>
+                <td><input class="input mono" type="number" min="0" name="From[@i].Delta" value="@Model.From[i].Delta" /></td>
+                <td class="flex" style="gap:.5rem">
+                  <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=from&index=@i" formmethod="post">OK</button>
+                  <button class="btn" type="submit" formaction="?handler=RemoveLeg&side=from&index=@i" formmethod="post">Delete</button>
+                  <input type="hidden" name="From[@i].Label"   value="@Model.From[i].Label" />
+                  <input type="hidden" name="From[@i].TankId"  value="@Model.From[i].TankId" />
+                  <input type="hidden" name="From[@i].IsSea"   value="@(Model.From[i].IsSea ? "true" : "false")" />
+                  <input type="hidden" name="From[@i].Current" value="@Model.From[i].Current" />
+                  <input type="hidden" name="From[@i].Max"     value="@Model.From[i].Max" />
+                </td>
+              </tr>
                     }
-                </tbody>
-            </table>
-        </div>
+        </tbody>
+      </table>
+    </div>
 
-        <!-- TOTAL -->
-        <div style="width:20%; text-align:center">
-            <h3>-> TOTAL</h3>
-            <input class="input mono" type="number" min="0" name="Total" value="@Model.Total" style="width:120px" />
-            <div style="margin-top:.5rem">
-                <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=total" formmethod="post">OK</button>
-            </div>
-        </div>
+    <!-- TOTAL -->
+    <div style="width:20%; text-align:center">
+      <h3>-> TOTAL</h3>
+      <input class="input mono" type="number" min="0" name="Total" value="@Model.Total" style="width:120px" />
+      <div style="margin-top:.5rem">
+        <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=total" formmethod="post">OK</button>
+      </div>
+    </div>
 
-        <!-- TO -->
-        <div style="width:40%">
-            <h3>TO</h3>
-            <div class="small">Add tanks (or SEA)</div>
-            <div class="flex">
-                <select class="input" name="targetTo" form="mainForm">
-                    <option value="SEA">SEA</option>
+    <!-- TO -->
+    <div style="width:40%">
+      <h3>TO</h3>
+      <div class="small">Add tanks (or SEA)</div>
+      <div class="flex">
+        <select class="input" name="targetTo" form="mainForm">
+          <option value="SEA">SEA</option>
                     @{
-                        var toIds = new HashSet<Guid>(Model.To.Where(x => !x.IsSea && x.TankId.HasValue).Select(x => x.TankId!.Value));
+                        var fromIds2 = new HashSet<Guid>(Model.From.Where(x => !x.IsSea && x.TankId.HasValue).Select(x => x.TankId!.Value));
+                        var toIds2 = new HashSet<Guid>(Model.To.Where(x => !x.IsSea && x.TankId.HasValue).Select(x => x.TankId!.Value));
+                        fromIds2.UnionWith(toIds2);
                     }
-                    @foreach (var t in Model.TankChoices.Where(t => !toIds.Contains(t.Id)))
+                    @foreach (var t in Model.TankChoices.Where(t => !fromIds2.Contains(t.Id)))
                     {
-                        <option value="@t.Id">@t.Code (@t.CurrentCapacity/@t.MaxCapacity)</option>
+                <option value="@t.Id">@t.Code (@t.CurrentCapacity/@t.MaxCapacity)</option>
                     }
-                </select>
-                <button class="btn" type="submit" formaction="?handler=AddLeg" formmethod="post" name="side" value="to">Add</button>
-            </div>
+        </select>
+        <button class="btn" type="submit" formaction="?handler=AddLeg" formmethod="post" name="side" value="to">Add</button>
+      </div>
 
-            <table class="table">
-                <thead><tr><th>Tank</th><th>Cur/Max</th><th>m3</th><th></th></tr></thead>
-                <tbody>
+      <table class="table">
+        <thead><tr><th>Tank</th><th>Cur/Max</th><th>m3</th><th></th></tr></thead>
+        <tbody>
                     @for (int i = 0; i < Model.To.Count; i++)
                     {
                         var after = Model.To[i].IsSea ? 0 : Math.Clamp(Model.To[i].Current + Model.To[i].Delta, 0, Model.To[i].Max);
-                        <tr>
-                            <td>@Model.To[i].Label</td>
-                            <td>@(Model.To[i].IsSea ? "-" : $"{after}/{Model.To[i].Max}")</td>
-                            <td><input class="input mono" type="number" min="0" name="To[@i].Delta" value="@Model.To[i].Delta" /></td>
-                            <td class="flex" style="gap:.5rem">
-                                <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=to&index=@i" formmethod="post">OK</button>
-                                <button class="btn" type="submit" formaction="?handler=RemoveLeg&side=to&index=@i" formmethod="post">Delete</button>
-                                <input type="hidden" name="To[@i].Label" value="@Model.To[i].Label" />
-                                <input type="hidden" name="To[@i].TankId" value="@Model.To[i].TankId" />
-                                <input type="hidden" name="To[@i].IsSea" value="@(Model.To[i].IsSea ? "true" : "false")" />
-                                <input type="hidden" name="To[@i].Current" value="@Model.To[i].Current" />
-                                <input type="hidden" name="To[@i].Max" value="@Model.To[i].Max" />
-                            </td>
-                        </tr>
+              <tr>
+                <td>@Model.To[i].Label</td>
+                <td>@(Model.To[i].IsSea ? "-" : $"{after}/{Model.To[i].Max}")</td>
+                <td><input class="input mono" type="number" min="0" name="To[@i].Delta" value="@Model.To[i].Delta" /></td>
+                <td class="flex" style="gap:.5rem">
+                  <button class="btn update-btn" type="submit" formaction="?handler=Rebalance&which=to&index=@i" formmethod="post">OK</button>
+                  <button class="btn" type="submit" formaction="?handler=RemoveLeg&side=to&index=@i" formmethod="post">Delete</button>
+                  <input type="hidden" name="To[@i].Label"   value="@Model.To[i].Label" />
+                  <input type="hidden" name="To[@i].TankId"  value="@Model.To[i].TankId" />
+                  <input type="hidden" name="To[@i].IsSea"   value="@(Model.To[i].IsSea ? "true" : "false")" />
+                  <input type="hidden" name="To[@i].Current" value="@Model.To[i].Current" />
+                  <input type="hidden" name="To[@i].Max"     value="@Model.To[i].Max" />
+                </td>
+              </tr>
                     }
-                </tbody>
-            </table>
-        </div>
+        </tbody>
+      </table>
     </div>
+  </div>
 
-    <div style="margin-top:1rem">
-        <button class="btn" type="submit" formaction="?handler=Save" formmethod="post">Save changes</button>
-        <a class="btn" href="/Ops">Cancel</a>
-    </div>
+  <div style="margin-top:1rem">
+    <button class="btn" type="submit" formaction="?handler=Save" formmethod="post">Save changes</button>
+    <a class="btn" href="/Ops">Cancel</a>
+  </div>
 </form>
 
-<script>
-    document.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){
-        const tr = e.target.closest('tr');
-        const btn = tr?.querySelector('.update-btn') ?? document.querySelector('button.update-btn[formaction*="which=total"]');
-        if(btn){ e.preventDefault(); btn.click(); }
-      }
-    }, true);
-</script>
+@Html.DropDownList(
+        "targetFrom",
+        Model.FromOptions,
+        htmlAttributes: new { @class = "input", form = "mainForm" }
+    )
+
+@Html.DropDownList(
+        "targetTo",
+        Model.ToOptions,
+        htmlAttributes: new { @class = "input", form = "mainForm" }
+    )

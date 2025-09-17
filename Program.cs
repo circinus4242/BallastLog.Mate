@@ -1,8 +1,11 @@
 using BallastLog.Mate.Data;
 using BallastLog.Mate.Services;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.WebHost.UseUrls("http://127.0.0.1:7777");
 
