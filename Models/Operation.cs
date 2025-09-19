@@ -26,8 +26,7 @@ public class Operation
     public string? Custom3 { get; set; }
     public string? Custom4 { get; set; }
     public string? Custom5 { get; set; }
-    [Range(0, int.MaxValue)]
-    public int TotalAmount { get; set; }
+    public double TotalAmount { get; set; }
     public double FlowRate { get; set; }
     public bool RecordedToLogBook { get; set; }
     public bool RecordedToFm232 { get; set; }

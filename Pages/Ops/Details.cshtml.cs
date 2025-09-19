@@ -30,13 +30,13 @@ public class DetailsModel : PageModel
         public string DateStop { get; set; } = "";
         public string Location { get; set; } = "";
         public string TimeStart { get; set; } = "";
-        public int Initial { get; set; }
+        public double Initial { get; set; }
         public string EstUptakeSea { get; set; } = "-";
         public string EstIntakeReception { get; set; } = "-";
         public string EstCirculated { get; set; } = "-";
         public string EstDischargedSea { get; set; } = "-";
         public string EstDischargedReception { get; set; } = "-";
-        public int Final { get; set; }
+        public double Final { get; set; }
         public string TimeCompleted { get; set; } = "";
         public string Method { get; set; } = "";
         public string SeaDepth { get; set; } = "";
@@ -103,14 +103,14 @@ public class DetailsModel : PageModel
             var any = g.First();
             var tank = any.Tank!;
 
-            int initial = g.Any(x => x.Direction == LegDir.From) ? g.Where(x => x.Direction == LegDir.From).First().VolumeBefore
+            double initial = g.Any(x => x.Direction == LegDir.From) ? g.Where(x => x.Direction == LegDir.From).First().VolumeBefore
                                                                  : g.Where(x => x.Direction == LegDir.To).First().VolumeBefore;
 
-            int final = g.Any(x => x.Direction == LegDir.To) ? g.Where(x => x.Direction == LegDir.To).Last().VolumeAfter
+            double final = g.Any(x => x.Direction == LegDir.To) ? g.Where(x => x.Direction == LegDir.To).Last().VolumeAfter
                                                              : g.Where(x => x.Direction == LegDir.From).Last().VolumeAfter;
 
-            int deltaTo = g.Where(x => x.Direction == LegDir.To).Sum(x => x.Delta);
-            int deltaFrom = g.Where(x => x.Direction == LegDir.From).Sum(x => x.Delta);
+            double deltaTo = g.Where(x => x.Direction == LegDir.To).Sum(x => x.Delta);
+            double deltaFrom = g.Where(x => x.Direction == LegDir.From).Sum(x => x.Delta);
 
             var row = new Fm232Row
             {
@@ -261,9 +261,9 @@ public class DetailsModel : PageModel
             NewLog.Add(new NewLogRow { Date = "", Code = "", Item = "3", Record = tanks });
 
             // 4 quantity and final retained
-            int qty = Op.Type == OpType.B ? Op.Legs.Where(l => l.Direction == LegDir.To && !l.IsSea).Sum(l => l.Delta)
+            double qty = Op.Type == OpType.B ? Op.Legs.Where(l => l.Direction == LegDir.To && !l.IsSea).Sum(l => l.Delta)
                                           : Op.Legs.Where(l => l.Direction == LegDir.From && !l.IsSea).Sum(l => l.Delta);
-            int finalOnboard = FinalOnboardAfterThisOperation();
+            double finalOnboard = FinalOnboardAfterThisOperation();
             string word = Op.Type == OpType.B ? "UPTAKE" : "DISCHARGED";
             NewLog.Add(new NewLogRow
             {
@@ -290,7 +290,7 @@ public class DetailsModel : PageModel
                 ? $"START: {Op.StartLocal:HH:mm}LT ({Op.LocationStart}); STOP: {Op.StopLocal:HH:mm}LT ({Op.LocationStop})."
                 : $"START: {Op.StartLocal:HH:mm}LT; STOP: {Op.StopLocal:HH:mm}LT. {SameOr(Op.LocationStart, Op.LocationStop)}.";
 
-            int qty = Op.Legs.Where(l => !l.IsSea).Sum(l => l.Delta);
+            double qty = Op.Legs.Where(l => !l.IsSea).Sum(l => l.Delta);
             var fromNames = FullTankNames(Direction: LegDir.From);
             var toNames = FullTankNames(Direction: LegDir.To);
 
@@ -450,10 +450,10 @@ public class DetailsModel : PageModel
         {
             var items = g.OrderBy(i => SplitPortStbd(i.Tank!.Name).side).ToList();
 
-            int initPort = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Port").Select(i => i.VolumeBefore).DefaultIfEmpty(0).First();
-            int initStbd = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Stbd").Select(i => i.VolumeBefore).DefaultIfEmpty(0).First();
-            int finPort = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Port").Select(i => i.VolumeAfter).DefaultIfEmpty(0).First();
-            int finStbd = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Stbd").Select(i => i.VolumeAfter).DefaultIfEmpty(0).First();
+            double initPort = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Port").Select(i => i.VolumeBefore).DefaultIfEmpty(0).First();
+            double initStbd = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Stbd").Select(i => i.VolumeBefore).DefaultIfEmpty(0).First();
+            double finPort = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Port").Select(i => i.VolumeAfter).DefaultIfEmpty(0).First();
+            double finStbd = items.Where(i => SplitPortStbd(i.Tank!.Name).side == "Stbd").Select(i => i.VolumeAfter).DefaultIfEmpty(0).First();
 
             string name = g.Key;
             string pairInit = (initPort > 0 || initStbd > 0)
@@ -472,7 +472,7 @@ public class DetailsModel : PageModel
     private IEnumerable<string> BuildTransferRows()
     {
         // produce the 1->1, 1->2, 2->1, 2->2 verb + initial/final lines as required
-        int total = Op.Legs.Where(l => !l.IsSea).Sum(l => l.Delta);
+        double total = Op.Legs.Where(l => !l.IsSea).Sum(l => l.Delta);
 
         var fromGroups = Op.Legs.Where(l => !l.IsSea && l.Direction == LegDir.From).GroupBy(l => SplitPortStbd(l.Tank!.Name).baseName);
         var toGroups = Op.Legs.Where(l => !l.IsSea && l.Direction == LegDir.To).GroupBy(l => SplitPortStbd(l.Tank!.Name).baseName);
@@ -527,12 +527,12 @@ public class DetailsModel : PageModel
         return string.Join(", ", list.Take(list.Count - 1)) + " and " + list.Last();
     }
 
-    private int FinalOnboardAfterThisOperation()
+    private double FinalOnboardAfterThisOperation()
     {
         // Sum of all tanks final volumes immediately after this op (use legs' VolumeAfter where available; for tanks not touched in op, keep their current)
         // Simple approach: use Tank.CurrentCapacity after Recalc of all operations up to this one.
         // If you store a snapshot on operation, use it. Here we approximate by summing VolumeAfter for all legs per tank, or fall back to Tank.CurrentCapacity.
-        var tankFinals = new Dictionary<Guid, int>();
+        var tankFinals = new Dictionary<Guid, double>();
         foreach (var l in Op.Legs.Where(x => !x.IsSea && x.TankId.HasValue))
         {
             tankFinals[l.TankId!.Value] = l.VolumeAfter;

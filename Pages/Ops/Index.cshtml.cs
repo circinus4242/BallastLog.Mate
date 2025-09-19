@@ -14,7 +14,7 @@ public class IndexModel : PageModel
     public IndexModel(AppDbContext db, RecalcService recalc) { _db = db; _recalc = recalc; }
 
     public record Row(Guid Id, DateTime Start, DateTime Stop, string? LocS, string? LocE,
-                      OpType Type, string TanksFrom, string TanksTo, int Total, OpState State,
+                      OpType Type, string TanksFrom, string TanksTo, double Total, OpState State,
                       bool RecLog, bool RecFm);
 
     public List<Row> Ops { get; set; } = new();

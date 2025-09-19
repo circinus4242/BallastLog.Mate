@@ -22,9 +22,9 @@ public class EditModel : PageModel
         public string Label { get; set; } = "";
         public Guid? TankId { get; set; }
         public bool IsSea { get; set; }
-        public int Current { get; set; }
-        public int Max { get; set; }
-        public int Delta { get; set; }
+        public double Current { get; set; }
+        public double Max { get; set; }
+        public double Delta { get; set; }
     }
 
     [BindProperty(SupportsGet = true)]
@@ -36,7 +36,7 @@ public class EditModel : PageModel
     [BindProperty] public Operation Op { get; set; } = new();
     [BindProperty] public List<LegVm> From { get; set; } = new();
     [BindProperty] public List<LegVm> To { get; set; } = new();
-    [BindProperty] public int Total { get; set; }
+    [BindProperty] public double Total { get; set; }
 
     public int MaxFlowRate { get; set; }
     public List<Tank> TankChoices { get; set; } = new();
@@ -76,45 +76,45 @@ public class EditModel : PageModel
         => legs.Where(l => !l.IsSea && l.TankId.HasValue).Select(l => l.TankId!.Value).ToHashSet();
 
     // reuse the distribution helpers from Create
-    private static int FromCap(LegVm l) => l.IsSea ? int.MaxValue : l.Current;
-    private static int ToCap(LegVm l) => l.IsSea ? int.MaxValue : (l.Max - l.Current);
-    private static int DistributeRemainderKeepTotal(int desiredTotal, List<LegVm> legs, int lockIndex, bool sideFrom)
+    private static double FromCap(LegVm l) => l.IsSea ? int.MaxValue : l.Current;
+    private static double ToCap(LegVm l) => l.IsSea ? int.MaxValue : (l.Max - l.Current);
+    private static double DistributeRemainderKeepTotal(double desiredTotal, List<LegVm> legs, int lockIndex, bool sideFrom)
     {
         if (legs.Count == 0) return 0;
-        Func<LegVm, int> capFn = sideFrom ? new Func<LegVm, int>(FromCap) : new Func<LegVm, int>(ToCap);
+        Func<LegVm, double> capFn = sideFrom ? new Func<LegVm, double>(FromCap) : new Func<LegVm, double>(ToCap);
         if (lockIndex >= 0 && lockIndex < legs.Count)
             legs[lockIndex].Delta = Math.Min(Math.Max(0, legs[lockIndex].Delta), capFn(legs[lockIndex]));
-        int locked = (lockIndex >= 0 && lockIndex < legs.Count) ? legs[lockIndex].Delta : 0;
-        int remainder = Math.Max(0, desiredTotal - locked);
+        double locked = (lockIndex >= 0 && lockIndex < legs.Count) ? legs[lockIndex].Delta : 0;
+        double remainder = Math.Max(0, desiredTotal - locked);
         var others = legs.Select((l, i) => new { l, i }).Where(x => x.i != lockIndex).ToList();
         foreach (var x in others) x.l.Delta = 0;
         if (others.Count == 0) return locked;
-        int n = others.Count; int q = remainder / n; int r = remainder % n; int assigned = 0;
+        int n = others.Count; double q = remainder / n; double r = remainder % n; double assigned = 0;
         for (int k = 0; k < n; k++)
         {
-            var x = others[k]; int want = q + (k < r ? 1 : 0);
-            int cap = capFn(x.l); int add = Math.Min(want, Math.Max(0, cap));
+            var x = others[k]; double want = q + (k < r ? 1 : 0);
+            double cap = capFn(x.l); double add = Math.Min(want, Math.Max(0, cap));
             x.l.Delta = add; assigned += add;
         }
         for (int pass = 0; assigned < remainder && pass < 2; pass++)
             for (int k = 0; k < n && assigned < remainder; k++)
             {
-                var x = others[k]; int cap = capFn(x.l);
+                var x = others[k]; double cap = capFn(x.l);
                 if (x.l.Delta < cap) { x.l.Delta++; assigned++; }
             }
         return locked + assigned;
     }
-    private static int DistributeEqual(int desiredTotal, List<LegVm> legs, bool sideFrom)
+    private static double DistributeEqual(double desiredTotal, List<LegVm> legs, bool sideFrom)
     {
-        Func<LegVm, int> capFn = sideFrom ? new Func<LegVm, int>(FromCap) : new Func<LegVm, int>(ToCap);
+        Func<LegVm, double> capFn = sideFrom ? new Func<LegVm, double>(FromCap) : new Func<LegVm, double>(ToCap);
         int n = legs.Count; if (n == 0) return 0;
-        int q = desiredTotal / n, r = desiredTotal % n;
+        double q = desiredTotal / n, r = desiredTotal % n;
         for (int i = 0; i < n; i++) legs[i].Delta = Math.Min(capFn(legs[i]), q + (i < r ? 1 : 0));
-        int achieved = legs.Sum(l => l.Delta);
+        double achieved = legs.Sum(l => l.Delta);
         for (int i = 0; i < n && achieved < desiredTotal; i++)
         {
-            int cap = capFn(legs[i]); int room = cap - legs[i].Delta;
-            int add = Math.Min(room, desiredTotal - achieved);
+            double cap = capFn(legs[i]); double room = cap - legs[i].Delta;
+            double add = Math.Min(room, desiredTotal - achieved);
             if (add > 0) { legs[i].Delta += add; achieved += add; }
         }
         return achieved;
@@ -226,16 +226,16 @@ public class EditModel : PageModel
 
         if (which == "from" && index >= 0 && index < From.Count)
         {
-            int desired = Total;
-            int got = DistributeRemainderKeepTotal(desired, From, index, sideFrom: true);
+            double desired = Total;
+            double got = DistributeRemainderKeepTotal(desired, From, index, sideFrom: true);
             Total = got;
             if (To.Count > 0) DistributeEqual(Total, To, sideFrom: false);
             return Page();
         }
         if (which == "to" && index >= 0 && index < To.Count)
         {
-            int desired = Total;
-            int got = DistributeRemainderKeepTotal(desired, To, index, sideFrom: false);
+            double desired = Total;
+            double got = DistributeRemainderKeepTotal(desired, To, index, sideFrom: false);
             Total = got;
             if (From.Count > 0) DistributeEqual(Total, From, sideFrom: true);
             return Page();
@@ -247,7 +247,7 @@ public class EditModel : PageModel
             return Page();
         }
 
-        int sum = Math.Max(From.Sum(l => l.Delta), To.Sum(l => l.Delta));
+        double sum = Math.Max(From.Sum(l => l.Delta), To.Sum(l => l.Delta));
         Total = sum;
         if (From.Count > 0) DistributeEqual(Total, From, sideFrom: true);
         if (To.Count > 0) DistributeEqual(Total, To, sideFrom: false);

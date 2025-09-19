@@ -1,83 +1,310 @@
 ﻿@page
 @model BallastLog.Mate.Pages.Setup.IndexModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Setup";
 }
-<link rel="stylesheet" href="/site.css" />
 
-<h2>Setup</h2>
+<style>
+    .mono {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    .icon {
+        width: 1rem;
+        height: 1rem;
+        vertical-align: -2px;
+    }
+
+    .badge-chip {
+        display: inline-block;
+        padding: .2rem .5rem;
+        border-radius: .35rem;
+        font-size: .8rem;
+        line-height: 1;
+        border: 1px solid rgba(0,0,0,.1);
+    }
+
+    /* page spacing + tidy cards */
+    .setup-card {
+        margin-bottom: 1.25rem;
+    }
+
+    /* Tank type color UI */
+    .color-swatch {
+        width: 2.25rem;
+        height: 2.25rem;
+        padding: 0;
+        border: 1px solid rgba(0,0,0,.2);
+    }
+
+    .swatch {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 1px solid rgba(0,0,0,.25);
+        border-radius: .25rem;
+    }
+
+    /* Import/Export tiles */
+    .io-tile {
+        border: 1px solid rgba(0,0,0,.125);
+        border-radius: .5rem;
+        padding: 1rem;
+        height: 100%;
+    }
+
+        .io-tile h6 {
+            margin-bottom: .5rem;
+        }
+</style>
+
+<h2 class="mb-3">Setup</h2>
 
 @if (TempData["msg"] is string m)
 {
-     <div class="small">@m</div>
+    <div class="alert alert-info py-2">@m</div>
 }
-<div asp-validation-summary="ModelOnly" class="small" style="color:#b00"></div>
 
+<div class="row g-3">
+    <!-- ================= LEFT COLUMN ================= -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="setup-left-sticky">
 
-<form method="post" asp-page-handler="SaveProfile" class="flex" style="flex-wrap:wrap">
-    <div>
-        <div>Ship's name</div>
-        <input class="input" asp-for="Profile.ShipName" />
-    </div>
-    <div>
-        <div>Ship's class</div>
-        <input class="input" asp-for="Profile.ShipClass" />
-    </div>
-    <div>
-        <div>Max flowrate (m³/h)</div>
-        <input class="input" asp-for="Profile.MaxFlowRate" type="number" min="0" />
-    </div>
-    <div style="flex-basis:100%"></div>
-    <div><div>Custom 1 label</div><input class="input" asp-for="Profile.Custom1Label" /></div>
-    <div><div>Custom 2 label</div><input class="input" asp-for="Profile.Custom2Label" /></div>
-    <div><div>Custom 3 label</div><input class="input" asp-for="Profile.Custom3Label" /></div>
-    <div><div>Custom 4 label</div><input class="input" asp-for="Profile.Custom4Label" /></div>
-    <div><div>Custom 5 label</div><input class="input" asp-for="Profile.Custom5Label" /></div>
-    <div style="flex-basis:100%"></div>
-    <button class="btn" type="submit">Save profile</button>
-</form>
+            <!-- Profile -->
+            <div class="card setup-card">
+                <div class="card-header fw-semibold">Profile</div>
+                <div class="card-body">
+                    <form method="post" asp-page-handler="SaveProfile" class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Ship’s name</label>
+                            <input class="form-control" asp-for="Profile.ShipName" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Ship’s class</label>
+                            <input class="form-control" asp-for="Profile.ShipClass" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Max flowrate (m³/h)</label>
+                            <input class="form-control" asp-for="Profile.MaxFlowRate" />
+                        </div>
 
-<hr />
+                        <div class="col-12"><label class="form-label">Custom field 1 label</label><input class="form-control" asp-for="Profile.Custom1Label" /></div>
+                        <div class="col-12"><label class="form-label">Custom field 2 label</label><input class="form-control" asp-for="Profile.Custom2Label" /></div>
+                        <div class="col-12"><label class="form-label">Custom field 3 label</label><input class="form-control" asp-for="Profile.Custom3Label" /></div>
+                        <div class="col-12"><label class="form-label">Custom field 4 label</label><input class="form-control" asp-for="Profile.Custom4Label" /></div>
+                        <div class="col-12"><label class="form-label">Custom field 5 label</label><input class="form-control" asp-for="Profile.Custom5Label" /></div>
 
-<h3>Tanks</h3>
-<form method="post" asp-page-handler="AddTank" class="flex" style="flex-wrap:wrap">
-    <div><div>Tank ID</div><input class="input" asp-for="NewTank.Code" /></div>
-    <div><div>Tank name</div><input class="input" asp-for="NewTank.Name" /></div>
-    <div><div>Max (m³)</div><input class="input" type="number" asp-for="NewTank.MaxCapacity" /></div>
-    <div><div>Current (m³)</div><input class="input" type="number" asp-for="NewTank.InitialCapacity" /></div>
-    <div><div>Order</div><input class="input" type="number" asp-for="NewTank.Order" /></div>
-    <div style="flex-basis:100%"></div>
-    <button class="btn">Add tank</button>
-</form>
-
-<table class="table">
-    <thead><tr><th>Code</th><th>Name</th><th>Max</th><th>Initial</th><th>Current</th><th></th></tr></thead>
-    <tbody>
-        @foreach (var t in Model.Tanks)
-        {
-            <tr>
-                <td>@t.Code</td>
-                <td>@t.Name</td>
-                <td>@t.MaxCapacity</td>
-                <td>@t.InitialCapacity</td>
-                <td>@t.CurrentCapacity</td>
-                <td>
-                    <form method="post" asp-page-handler="DeleteTank">
-                        <input type="hidden" name="id" value="@t.Id" />
-                        <button class="btn" onclick="return confirm('Delete @t.Code?')">Delete</button>
+                        <div class="col-12 mt-2">
+                            <button class="btn btn-primary">Save profile</button>
+                        </div>
                     </form>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+                </div>
+            </div>
 
-<hr />
+            <!-- Tank Types -->
+            <div class="card setup-card" id="card-types">
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Tank types</span>
+                    <span class="text-muted small">e.g., Wing, Double bottom</span>
+                </div>
 
-<form method="post" asp-page-handler="Export">
-    <button class="btn">Export ship profile & tanks (JSON)</button>
-</form>
-<form method="post" asp-page-handler="Import" enctype="multipart/form-data">
-    <input type="file" name="file" />
-    <button class="btn">Import JSON</button>
-</form>
+                <div class="card-body">
+                    <!-- ADD TYPE: only Name + color square + Add -->
+                    <form method="post" asp-page-handler="AddType" class="row g-2 align-items-end">
+                        <div class="col-7 col-sm-8">
+                            <label class="form-label small mb-1">Name</label>
+                            <input class="form-control" asp-for="NewType.Name" placeholder="Wing" />
+                            <span class="text-danger small" asp-validation-for="NewType.Name"></span>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small mb-1 d-block">Color</label>
+                            <input type="color" class="form-control form-control-color color-swatch"
+                                   asp-for="NewType.ColorHex" title="Pick color" />
+                            <span class="text-danger small d-block" asp-validation-for="NewType.ColorHex"></span>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-success">Add</button>
+                        </div>
+                    </form>
+
+                    @if (Model.Types.Any())
+                    {
+                        <hr class="my-3" />
+                        <ul class="list-group">
+                            @foreach (var tt in Model.Types)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="swatch" style="background:@tt.ColorHex"></span>
+                                        <strong>@tt.Name</strong>
+                                        <span class="text-muted mono">@tt.ColorHex</span>
+                                    </div>
+                                    <form method="post" asp-page-handler="DeleteType" asp-route-id="@tt.Id"
+                                          onsubmit="return confirm('Delete tank type @tt.Name?');">
+                                        <button class="btn btn-outline-danger btn-sm">Delete</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <!-- Import/Export -->
+            <div class="card setup-card" id="card-io">
+                <div class="card-header fw-semibold">Import / Export</div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-stretch">
+                        <!-- Export -->
+                        <div class="col-md-6">
+                            <div class="io-tile">
+                                <h6 class="mb-2">Export</h6>
+                                <p class="text-muted small mb-3">Download a JSON with ship profile &amp; tanks.</p>
+                                <form method="post" asp-page-handler="Export">
+                                    <button class="btn btn-primary w-100">Export ship profile &amp; tanks (JSON)</button>
+                                </form>
+                            </div>
+                        </div>
+                        <!-- Import -->
+                        <div class="col-md-6">
+                            <div class="io-tile">
+                                <h6 class="mb-2">Import</h6>
+                                <form method="post" asp-page-handler="Import" enctype="multipart/form-data" class="vstack gap-2">
+                                    <div class="input-group">
+                                        <input type="file" name="file" id="importFile" class="form-control" accept=".json,application/json" aria-label="Choose JSON file">
+                                        <button class="btn btn-success" id="btnImport" type="submit" disabled>Import</button>
+                                    </div>
+                                    <div class="form-text">Select a previously exported JSON file.</div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /.setup-left-sticky -->
+    </div>
+    <!-- ================ /LEFT COLUMN ================= -->
+    <!-- ================= RIGHT COLUMN (Tanks) ================= -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="card">
+            <div class="card-header fw-semibold">Tanks</div>
+            <div class="card-body">
+
+                <!-- Add Tank -->
+                <form method="post" asp-page-handler="AddTank" class="row g-2 align-items-end mb-3">
+                    <div class="col-md-2 col-4">
+                        <label class="form-label">Order</label>
+                        <input class="form-control" asp-for="NewTank.Order" />
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <label class="form-label">Tank ID</label>
+                        <input class="form-control mono" asp-for="NewTank.Code" />
+                    </div>
+                    <div class="col-md-4 col-8">
+                        <label class="form-label">Tank name</label>
+                        <input class="form-control" asp-for="NewTank.Name" />
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <label class="form-label">Max (m³)</label>
+                        <input class="form-control" asp-for="NewTank.MaxCapacity" />
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <label class="form-label">Initial (m³)</label>
+                        <input class="form-control" asp-for="NewTank.InitialCapacity" />
+                    </div>
+                    <div class="col-md-3 col-7">
+                        <label class="form-label">Tank type</label>
+                        <select class="form-select" asp-for="NewTank.TankTypeId">
+                            <option value="">— none —</option>
+                            @foreach (var tt in Model.Types)
+                            {
+                                <option value="@tt.Id">@tt.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2 col-5">
+                        <button class="btn btn-success w-100">Add tank</button>
+                    </div>
+                </form>
+
+                <!-- Tanks table -->
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th class="text-end" style="width:6rem;">Order</th>
+                                <th style="width:7rem;">Code</th>
+                                <th>Name</th>
+                                <th style="width:7rem;">Type</th>
+                                <th class="text-end" style="width:7rem;">Max</th>
+                                <th class="text-end" style="width:7rem;">Initial</th>
+                                <th class="text-end" style="width:7rem;">Current</th>
+                                <th style="width:7rem;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Model.Tanks)
+                            {
+                                var typeName = t.TankType?.Name ?? "";
+                                var typeColor = t.TankType?.ColorHex ?? "#adb5bd";
+                                var fg = "#000000";
+                                try
+                                {
+                                    if (typeColor.StartsWith("#") && typeColor.Length == 7)
+                                    {
+                                        var r = Convert.ToInt32(typeColor.Substring(1, 2), 16);
+                                        var g = Convert.ToInt32(typeColor.Substring(3, 2), 16);
+                                        var b = Convert.ToInt32(typeColor.Substring(5, 2), 16);
+                                        var lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                                        fg = lum < 140 ? "#ffffff" : "#000000";
+                                    }
+                                }
+                                catch { fg = "#000000"; }
+
+                                <tr>
+                                    <td class="text-end mono">@t.Order</td>
+                                    <td class="mono">@t.Code</td>
+                                    <td>@t.Name</td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(typeName))
+                                        {
+                                            <span class="badge-chip" style="background-color:@typeColor;color:@fg">@typeName</span>
+                                        }
+                                    </td>
+                                    <td class="text-end mono">@t.MaxCapacity</td>
+                                    <td class="text-end mono">@t.InitialCapacity</td>
+                                    <td class="text-end mono">@t.CurrentCapacity</td>
+                                    <td>
+                                        <form method="post"
+                                              asp-page-handler="DeleteTank"
+                                              asp-route-id="@t.Id"
+                                              onsubmit="return confirm('Delete tank @t.Code?');"
+                                              class="d-inline">
+                                            <button class="btn btn-outline-danger btn-sm">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <!-- =============== /RIGHT COLUMN ================= -->
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // Enable Import button only when a file is selected
+        document.addEventListener('change', function (e) {
+          if (e.target && e.target.id === 'importFile') {
+            document.getElementById('btnImport').disabled = !e.target.files.length;
+          }
+        });
+    </script>
+}

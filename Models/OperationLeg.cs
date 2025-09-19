@@ -9,7 +9,7 @@ public class OperationLeg
     public Tank? Tank { get; set; }
     public bool IsSea { get; set; }
     public LegDir Direction { get; set; }
-    public int Delta { get; set; }
-    public int VolumeBefore { get; set; }
-    public int VolumeAfter { get; set; }
+    public double Delta { get; set; }
+    public double VolumeBefore { get; set; }
+    public double VolumeAfter { get; set; }
 }

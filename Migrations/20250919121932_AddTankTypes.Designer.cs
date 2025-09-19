@@ -3,6 +3,7 @@ using System;
 using BallastLog.Mate.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BallastLog.Mate.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250919121932_AddTankTypes")]
+    partial class AddTankTypes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.20");
@@ -80,8 +83,8 @@ namespace BallastLog.Mate.Migrations
                     b.Property<DateTime>("StopLocal")
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("TotalAmount")
-                        .HasColumnType("REAL");
+                    b.Property<int>("TotalAmount")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Type")
                         .HasColumnType("INTEGER");
@@ -105,8 +108,8 @@ namespace BallastLog.Mate.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("Delta")
-                        .HasColumnType("REAL");
+                    b.Property<int>("Delta")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Direction")
                         .HasColumnType("INTEGER");
@@ -120,11 +123,11 @@ namespace BallastLog.Mate.Migrations
                     b.Property<Guid?>("TankId")
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("VolumeAfter")
-                        .HasColumnType("REAL");
+                    b.Property<int>("VolumeAfter")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<double>("VolumeBefore")
-                        .HasColumnType("REAL");
+                    b.Property<int>("VolumeBefore")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -192,20 +195,17 @@ namespace BallastLog.Mate.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("CurrentCapacity")
-                        .HasPrecision(6, 1)
-                        .HasColumnType("REAL");
+                    b.Property<int>("CurrentCapacity")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<double>("InitialCapacity")
-                        .HasPrecision(6, 1)
-                        .HasColumnType("REAL");
+                    b.Property<int>("InitialCapacity")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
-                    b.Property<double>("MaxCapacity")
-                        .HasPrecision(6, 1)
-                        .HasColumnType("REAL");
+                    b.Property<int>("MaxCapacity")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()

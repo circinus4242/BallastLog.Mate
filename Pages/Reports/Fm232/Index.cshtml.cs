@@ -32,13 +32,13 @@ public class IndexModel : PageModel
         public string TankCode { get; set; } = "";
         public string Location { get; set; } = "";
         public string TimeStart { get; set; } = "";
-        public int Initial { get; set; }
+        public double Initial { get; set; }
         public string EstUptakeSea { get; set; } = "-";
         public string EstIntakeReception { get; set; } = "-";
         public string EstCirculated { get; set; } = "-";
         public string EstDischargedSea { get; set; } = "-";
         public string EstDischargedReception { get; set; } = "-";
-        public int Final { get; set; }
+        public double Final { get; set; }
         public string TimeCompleted { get; set; } = "";
         public string Method { get; set; } = "";
         public string SeaDepth { get; set; } = "";
@@ -75,12 +75,12 @@ public class IndexModel : PageModel
             {
                 var any = g.First();
                 var tank = any.Tank!;
-                int initial = g.Any(x => x.Direction == LegDir.From) ? g.First(x => x.Direction == LegDir.From).VolumeBefore
+                double initial = g.Any(x => x.Direction == LegDir.From) ? g.First(x => x.Direction == LegDir.From).VolumeBefore
                                                                      : g.First(x => x.Direction == LegDir.To).VolumeBefore;
-                int final = g.Any(x => x.Direction == LegDir.To) ? g.Last(x => x.Direction == LegDir.To).VolumeAfter
+                double final = g.Any(x => x.Direction == LegDir.To) ? g.Last(x => x.Direction == LegDir.To).VolumeAfter
                                                                  : g.Last(x => x.Direction == LegDir.From).VolumeAfter;
-                int deltaTo = g.Where(x => x.Direction == LegDir.To).Sum(x => x.Delta);
-                int deltaFrom = g.Where(x => x.Direction == LegDir.From).Sum(x => x.Delta);
+                double deltaTo = g.Where(x => x.Direction == LegDir.To).Sum(x => x.Delta);
+                double deltaFrom = g.Where(x => x.Direction == LegDir.From).Sum(x => x.Delta);
 
                 Rows.Add(new Row
                 {
