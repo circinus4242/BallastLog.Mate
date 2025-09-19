@@ -1,62 +1,264 @@
 ﻿@page
 @model BallastLog.Mate.Pages.Ops.IndexModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Operations";
 }
-<link rel="stylesheet" href="/site.css" />
 
-<h2>Operations</h2>
+<style>
+    table.table {
+        table-layout: fixed;
+    }
+    /* stable widths */
+    td, th {
+        vertical-align: middle;
+    }
 
-<p>
-    <a class="btn" href="/Ops/Create">New operation</a>
-</p>
+    .time-big {
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
 
-<table class="table">
+    .mono {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    /* compact switches */
+    .switch-xs .form-check-input {
+        width: 1.8em;
+        height: .95em;
+        cursor: pointer;
+    }
+
+        .switch-xs .form-check-input:focus {
+            box-shadow: none;
+        }
+
+    .no-row-link {
+        position: relative;
+        z-index: 2;
+    }
+    /* above anything clickable */
+
+    /* narrow switch + actions columns */
+    .col-switch {
+        width: 2.8rem;
+        padding-left: .2rem;
+        padding-right: .2rem;
+    }
+
+    .col-actions {
+        width: 7.25rem;
+    }
+    /* room for 3 compact buttons */
+
+    /* lists inside From/To cells */
+    .cell-list {
+        line-height: 1.1;
+        white-space: nowrap;
+    }
+
+    .list-vert {
+        display: flex;
+        flex-direction: column;
+        gap: .15rem;
+    }
+
+    /* icon-only small buttons */
+    .btn-icon.btn-sm {
+        --bs-btn-padding-y: .15rem;
+        --bs-btn-padding-x: .35rem;
+        --bs-btn-font-size: .85rem;
+        line-height: 1;
+    }
+
+    .icon {
+        width: 1rem;
+        height: 1rem;
+        display: inline-block;
+        vertical-align: -2px;
+        color: currentColor;
+    }
+    /* one-line actions */
+    .actions-inline {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: .35rem; /* space between buttons */
+        flex-wrap: nowrap; /* keep them on one line */
+        white-space: nowrap; /* belt & suspenders */
+    }
+
+        .actions-inline .btn {
+            margin: 0;
+            line-height: 1;
+        }
+
+        .actions-inline form {
+            display: inline-flex;
+            margin: 0;
+        }
+
+</style>
+
+<h2 class="mb-3">Operations</h2>
+
+<p><a class="btn btn-primary" asp-page="./Create">New operation</a></p>
+
+<table class="table table-sm align-middle">
     <thead>
         <tr>
-            <th>Start</th>
-            <th>Stop</th>
+            <th class="col-switch">FM-232</th>
+            <th class="col-switch">Log</th>
+            <th style="width:11rem;">Start</th>
+            <th style="width:11rem;">Stop</th>
             <th>Loc S</th>
             <th>Loc E</th>
-            <th>Type</th>
+            <th class="text-center" style="width:6rem;">Type</th>
             <th>From</th>
             <th>To</th>
-            <th>Total</th>
-            <th>State</th>
-            <th></th>
+            <th class="text-center">Total</th>     <!-- no text-end on headers -->
+            <th class="text-center">State</th>
+            <th class="text-center">Actions</th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var r in Model.Ops)
+        @foreach (var o in Model.Ops)
         {
-            var cls = r.State == BallastLog.Mate.Models.OpState.Ok ? "ok" : "bad";
-            <tr class="@cls">
-                <td>@r.Start.ToString("dd-MMM-yyyy HH:mm")</td>
-                <td>@r.Stop.ToString("dd-MMM-yyyy HH:mm")</td>
-                <td>@r.LocS</td>
-                <td>@r.LocE</td>
-                <td class="mono">@r.Type</td>
-                <td>@r.TanksFrom</td>
-                <td>@r.TanksTo</td>
-                <td>@r.Total</td>
-                <td>@r.State</td>
-                <td class="flex">
-                    <a class="btn" href="/Ops/Details?id=@r.Id">Report</a>
-                    <a class="btn" href="/Ops/Edit?id=@r.Id">Edit</a>
-                    <form method="post" asp-page-handler="Mark">
-                        <input type="hidden" name="id" value="@r.Id" />
-                        <input type="hidden" name="which" value="log" />
-                        <button class="btn">@((r.RecLog) ? "Log✓" : "Log")</button>
-                    </form>
-                    <form method="post" asp-page-handler="Mark">
-                        <input type="hidden" name="id" value="@r.Id" />
+            string badgeClass = o.Type switch
+            {
+                BallastLog.Mate.Models.OpType.B => "bg-info",
+                BallastLog.Mate.Models.OpType.DB => "bg-warning",
+                BallastLog.Mate.Models.OpType.TR => "bg-success",
+                _ => "bg-danger"
+            };
+
+            // FROM/TO → arrays (each item on its own line)
+            var fromItems = (o.TanksFrom ?? "")
+            .Split(", ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var toItems = (o.TanksTo ?? "")
+            .Split(", ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // Locations: ports stay single line; sea positions split by slash
+            string locS = (o.LocS ?? "").Replace(" / ", "<br>").Replace("/", "<br>");
+            string locE = (o.LocE ?? "").Replace(" / ", "<br>").Replace("/", "<br>");
+
+            string startDate = o.Start.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture);
+            string startTime = o.Start.ToString("HH:mm", CultureInfo.InvariantCulture) + " SMT";
+            string stopDate = o.Stop.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture);
+            string stopTime = o.Stop.ToString("HH:mm", CultureInfo.InvariantCulture) + " SMT";
+
+            var fmId = $"fm-{o.Id}";
+            var logId = $"log-{o.Id}";
+            <tr>
+                <!-- FM-232 switch -->
+                <td class="text-center no-row-link col-switch" onclick="event.stopPropagation()">
+                    <form method="post" asp-page-handler="Mark" asp-route-id="@o.Id" class="d-inline-block">
                         <input type="hidden" name="which" value="fm" />
-                        <button class="btn">@((r.RecFm) ? "FM✓" : "FM")</button>
+                        <div class="form-check form-switch switch-xs m-0 d-inline-flex align-items-center">
+                            <input class="form-check-input" type="checkbox"
+                                   id="@fmId" name="val" value="on"
+                            @(o.RecFm ? "checked" : "")
+                                   title="FM-232 recorded"
+                                   onchange="this.form.submit()">
+                            <label class="visually-hidden" for="@fmId">FM-232 recorded</label>
+                        </div>
                     </form>
-                    <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete operation?')">
-                        <input type="hidden" name="id" value="@r.Id" />
-                        <button class="btn">Delete</button>
+                </td>
+
+                <!-- Log switch -->
+                <td class="text-center no-row-link col-switch" onclick="event.stopPropagation()">
+                    <form method="post" asp-page-handler="Mark" asp-route-id="@o.Id" class="d-inline-block">
+                        <input type="hidden" name="which" value="log" />
+                        <div class="form-check form-switch switch-xs m-0 d-inline-flex align-items-center">
+                            <input class="form-check-input" type="checkbox"
+                                   id="@logId" name="val" value="on"
+                            @(o.RecLog ? "checked" : "")
+                                   title="Log recorded"
+                                   onchange="this.form.submit()">
+                            <label class="visually-hidden" for="@logId">Log recorded</label>
+                        </div>
                     </form>
+                </td>
+
+                <!-- Start (no row navigation anymore) -->
+                <td class="mono">
+                    <div>@startDate</div>
+                    <div class="time-big">@startTime</div>
+                </td>
+
+                <!-- Stop -->
+                <td class="mono">
+                    <div>@stopDate</div>
+                    <div class="time-big">@stopTime</div>
+                </td>
+
+                <!-- Locations -->
+                <td class="mono cell-list">@Html.Raw(locS)</td>
+                <td class="mono cell-list">@Html.Raw(locE)</td>
+
+                <!-- Type -->
+                <td class="text-center"><span class="badge rounded-pill @badgeClass">@o.Type</span></td>
+
+                <!-- From / To -->
+                <td class="mono cell-list">
+                    <div class="list-vert">
+                        @foreach (var it in fromItems)
+                        {
+                            <div>@it</div>
+                        }
+                    </div>
+                </td>
+                <td class="mono cell-list">
+                    <div class="list-vert">
+                        @foreach (var it in toItems)
+                        {
+                            <div>@it</div>
+                        }
+                    </div>
+                </td>
+
+                <!-- Total + State -->
+                <td class="text-center" class="text-end mono">@o.Total</td>
+                <td class="text-center" class="text-center">@o.State</td>
+
+                <!-- Actions: Details / Edit / Delete (small icon buttons) -->
+                <td class="text-center" class="col-actions no-row-link" onclick="event.stopPropagation()">
+                    <div class="actions-inline">
+                        <a class="btn btn-outline-primary btn-sm btn-icon"
+                           asp-page="./Details" asp-route-id="@o.Id" title="Details">
+                            <!-- bi-eye -->
+                            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8z" />
+                                <circle cx="8" cy="8" r="2.5"></circle>
+                            </svg>
+                            <span class="visually-hidden">Details</span>
+                        </a>
+
+                        <a class="btn btn-outline-secondary btn-sm btn-icon"
+                           asp-page="./Edit" asp-route-id="@o.Id" title="Edit">
+                            <!-- bi-pencil-square -->
+                            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293z" />
+                                <path d="M13.752 2.397 5.854 10.293l-.708 2.122 2.122-.707 7.898-7.897-1.414-1.414z" />
+                                <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11A1.5 1.5 0 0 0 15 13.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11A.5.5 0 0 1 2.5 2H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z" />
+                            </svg>
+                            <span class="visually-hidden">Edit</span>
+                        </a>
+
+                        <form method="post" asp-page-handler="Delete" asp-route-id="@o.Id"
+                              onsubmit="return confirm('Delete this operation?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Delete">
+                                <!-- bi-trash3 -->
+                                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5z" />
+                                    <path d="M11 2.5V2a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v.5H1.5a.5.5 0 0 0 0 1H2l1 11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-11h.5a.5.5 0 0 0 0-1H11zM4.118 14.5 3.223 3.5H12.78l-.895 11a1 1 0 0 1-1 .9H5.118a1 1 0 0 1-1-.9z" />
+                                    <path d="M5.5 5v7m5 0V5" stroke="currentColor" stroke-width="1" fill="none" />
+                                </svg>
+                                <span class="visually-hidden">Delete</span>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
         }

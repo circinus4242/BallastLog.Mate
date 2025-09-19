@@ -37,12 +37,24 @@ public class IndexModel : PageModel
         }).ToList();
     }
 
-    public async Task<IActionResult> OnPostMark(Guid id, string which)
+    // Toggle or set a mark. If "val" is provided, set explicitly; otherwise toggle.
+    public async Task<IActionResult> OnPostMark(Guid id, string which, string? val)
     {
         var op = await _db.Operations.FindAsync(id);
         if (op == null) return RedirectToPage();
-        if (which == "log") op.RecordedToLogBook = !op.RecordedToLogBook;
-        if (which == "fm") op.RecordedToFm232 = !op.RecordedToFm232;
+
+        bool? setTo = val?.ToLowerInvariant() switch
+        {
+            "on" or "true" or "1" => true,
+            "off" or "false" or "0" => false,
+            _ => null
+        };
+
+        if (which == "log")
+            op.RecordedToLogBook = setTo ?? !op.RecordedToLogBook;
+        else if (which == "fm")
+            op.RecordedToFm232 = setTo ?? !op.RecordedToFm232;
+
         op.UpdatedUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return RedirectToPage();
