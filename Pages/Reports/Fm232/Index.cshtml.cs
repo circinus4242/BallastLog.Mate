@@ -1,4 +1,4 @@
-using BallastLog.Mate.Data;
+﻿using BallastLog.Mate.Data;
 using BallastLog.Mate.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using System.Globalization;
 using System.Text;
+using static BallastLog.Mate.Pages.Ops.DetailsModel;
 
 namespace BallastLog.Mate.Pages.Reports.Fm232;
 
@@ -26,6 +26,7 @@ public class IndexModel : PageModel
 
     public class Row
     {
+        // display
         public DateTime StopLocal { get; set; }
         public int TankOrder { get; set; }
         public string TankCode { get; set; } = "";
@@ -44,7 +45,11 @@ public class IndexModel : PageModel
         public string DistNearestLand { get; set; } = "";
         public string Oic { get; set; } = "CO";
         public string Remarks { get; set; } = "";
+
+        // control
         public Guid OpId { get; set; }
+        public bool RecordedFm232 { get; set; }
+        public bool FirstInOp { get; set; }
     }
 
     public async Task OnGet()
@@ -53,16 +58,20 @@ public class IndexModel : PageModel
         Tanks = await _db.Tanks.OrderBy(t => t.Order).ToListAsync();
 
         var (from, to) = NormalizeRange(FromDate, ToDate);
-        var q = _db.Operations.Include(o => o.Legs).ThenInclude(l => l.Tank)
-                              .Where(o => o.StopLocal >= from && o.StopLocal <= to);
+        var ops = await _db.Operations
+            .Include(o => o.Legs).ThenInclude(l => l.Tank)
+            .Where(o => o.StopLocal >= from && o.StopLocal <= to)
+            .OrderBy(o => o.StopLocal)
+            .ToListAsync();
 
-        var data = await q.OrderBy(o => o.StopLocal).ToListAsync();
-
-        foreach (var op in data)
+        foreach (var op in ops)
         {
             var legs = op.Legs.Where(l => !l.IsSea && l.Tank != null).ToList();
             if (TankId.HasValue) legs = legs.Where(l => l.TankId == TankId.Value).ToList();
-            foreach (var g in legs.GroupBy(l => l.TankId))
+            if (!legs.Any()) continue;
+
+            bool first = true;
+            foreach (var g in legs.GroupBy(l => l.TankId).OrderBy(g => g.First().Tank!.Order))
             {
                 var any = g.First();
                 var tank = any.Tank!;
@@ -93,30 +102,49 @@ public class IndexModel : PageModel
                     DistNearestLand = op.DistanceNearestLand?.ToString() ?? "",
                     Oic = "CO",
                     Remarks = BuildRemarks(op, Prof),
-                    OpId = op.Id
+                    OpId = op.Id,
+                    RecordedFm232 = op.RecordedToFm232,
+                    FirstInOp = first
                 });
+                first = false;
             }
         }
 
-        Rows = Rows.OrderBy(r => r.StopLocal)  // old on top
-                   .ThenBy(r => r.TankOrder)
-                   .ToList();
+        Rows = Rows.OrderBy(r => r.StopLocal).ThenBy(r => r.TankOrder).ToList();
+    }
+
+    public async Task<IActionResult> OnPostMarkFm232(Guid opId, DateTime? fromDate, DateTime? toDate, Guid? tankId)
+    {
+        var op = await _db.Operations.FindAsync(opId);
+        if (op != null)
+        {
+            op.RecordedToFm232 = true;
+            op.UpdatedUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+        return RedirectToPage(new
+        {
+            fromDate = fromDate?.ToString("yyyy-MM-dd"),
+            toDate = toDate?.ToString("yyyy-MM-dd"),
+            tankId
+        });
     }
 
     public async Task<FileResult> OnPostExportCsv(DateTime? fromDate, DateTime? toDate, Guid? tankId)
     {
         FromDate = fromDate; ToDate = toDate; TankId = tankId;
-        await OnGet(); // fill Rows
+        await OnGet();
 
         var sb = new StringBuilder();
-        sb.AppendLine("Tank,Date,Location,TimeStart,Initial,EstUptakeSea,EstIntakeReception,EstCirculated,EstDischargedSea,EstDischargedPRF,Final,TimeCompleted,Method,SeaDepth,DistNearestLand,OIC,Remarks");
+        sb.AppendLine("Tank,Date,Location,TimeStart,Initial,EstUptakeSea,EstIntakeReception,EstCirculated,EstDischargedSea,EstDischargedPRF,Final,TimeCompleted,Method,SeaDepth,DistNearestLand,OIC,Remarks,RecordedFm232");
         foreach (var r in Rows)
         {
             sb.AppendLine(string.Join(",",
                 Csv(r.TankCode), Csv(r.StopLocal.ToString("dd'/'MM'/'yy")),
                 Csv(r.Location), Csv(r.TimeStart), r.Initial,
                 Csv(r.EstUptakeSea), Csv(r.EstIntakeReception), Csv(r.EstCirculated), Csv(r.EstDischargedSea), Csv(r.EstDischargedReception),
-                r.Final, Csv(r.TimeCompleted), Csv(r.Method), Csv(r.SeaDepth), Csv(r.DistNearestLand), Csv(r.Oic), Csv(r.Remarks)
+                r.Final, Csv(r.TimeCompleted), Csv(r.Method), Csv(r.SeaDepth), Csv(r.DistNearestLand), Csv(r.Oic), Csv(r.Remarks),
+                r.RecordedFm232 ? "YES" : "NO"
             ));
         }
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
@@ -126,75 +154,239 @@ public class IndexModel : PageModel
     public async Task<FileResult> OnPostExportPdf(DateTime? fromDate, DateTime? toDate, Guid? tankId)
     {
         FromDate = fromDate; ToDate = toDate; TankId = tankId;
-        await OnGet(); // prepare Rows
+        await OnGet(); // fills Prof + Rows
 
-        var doc = Document.Create(container =>
+        var groups = Rows.GroupBy(r => r.OpId).OrderBy(g => g.First().StopLocal).ToList();
+        var dateRange = $"{FromDate:dd-MMM-yyyy} to {ToDate:dd-MMM-yyyy}";
+
+        // local helpers
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        var headerStyle = TextStyle.Default.FontFamily("Inter").SemiBold().FontSize(12);
+        var small = TextStyle.Default.FontFamily("Inter").FontSize(9);
+        var mono = TextStyle.Default.FontFamily("Roboto Mono").FontSize(9);
+        var cellText = small;
+        var cellTextMono = mono;
+
+        byte zebra = 0;
+
+        var pdf = Document.Create(container =>
         {
             container.Page(page =>
             {
                 page.Size(PageSizes.A4.Landscape());
                 page.Margin(20);
-                page.DefaultTextStyle(x => x.FontSize(9));
+                page.DefaultTextStyle(small);
 
-                page.Header().Text($"FM-232 (from {FromDate:dd-MMM-yyyy} to {ToDate:dd-MMM-yyyy})").SemiBold().FontSize(12).AlignCenter();
-
-                page.Content().Table(t =>
+                // ----- Header -----
+                page.Header().Row(row =>
                 {
-                    string[] headers = { "Tank", "Date", "Location", "Start", "Initial", "UptakeSea", "IntakePRF", "Circ/Treated", "DischSea", "DischPRF", "Final", "Completed", "Method", "Depth", "Dist NL", "OIC", "Remarks" };
-                    t.ColumnsDefinition(cols =>
+                    row.RelativeItem().Column(col =>
                     {
-                        foreach (var _ in headers) cols.RelativeColumn();
+                        col.Item().Text($"FM-232 – {Prof.ShipName ?? "Ship"}").Style(headerStyle);
+                        col.Item().Text($"Period: {dateRange}");
                     });
+                    row.ConstantItem(200).AlignRight().Text($"Generated: {DateTime.Now:dd-MMM-yyyy HH:mm}").FontFamily("Inter").FontSize(9);
+                });
 
-                    t.Header(h =>
-                    {
-                        foreach (var head in headers) h.Cell().Element(CellHeader).Text(head);
-                        static IContainer CellHeader(IContainer c) => c.DefaultTextStyle(s => s.SemiBold()).Padding(2).Background(Colors.Grey.Lighten2);
-                    });
+                // ----- Footer -----
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Page ").FontFamily("Inter");
+                    x.CurrentPageNumber().FontFamily("Inter");
+                    x.Span(" / ").FontFamily("Inter");
+                    x.TotalPages().FontFamily("Inter");
+                });
 
-                    foreach (var r in Rows)
+                // ----- Content -----
+                page.Content().Column(col =>
+                {
+                    foreach (var g in groups)
                     {
-                        t.Cell().Padding(2).Text(r.TankCode);
-                        t.Cell().Padding(2).Text(r.StopLocal.ToString("dd/MM/yy"));
-                        t.Cell().Padding(2).Text(r.Location);
-                        t.Cell().Padding(2).Text(r.TimeStart);
-                        t.Cell().Padding(2).Text(r.Initial.ToString());
-                        t.Cell().Padding(2).Text(r.EstUptakeSea);
-                        t.Cell().Padding(2).Text(r.EstIntakeReception);
-                        t.Cell().Padding(2).Text(r.EstCirculated);
-                        t.Cell().Padding(2).Text(r.EstDischargedSea);
-                        t.Cell().Padding(2).Text(r.EstDischargedReception);
-                        t.Cell().Padding(2).Text(r.Final.ToString());
-                        t.Cell().Padding(2).Text(r.TimeCompleted);
-                        t.Cell().Padding(2).Text(r.Method);
-                        t.Cell().Padding(2).Text(r.SeaDepth);
-                        t.Cell().Padding(2).Text(r.DistNearestLand);
-                        t.Cell().Padding(2).Text(r.Oic);
-                        t.Cell().Padding(2).Text(r.Remarks ?? "");
+                        var first = g.First();
+
+                        // Operation header strip
+                        col.Item().PaddingBottom(4).Background(Colors.Grey.Lighten3).Padding(6).Border(0.5f).BorderColor(Colors.Grey.Medium).Row(r =>
+                        {
+                            r.RelativeItem().Text(txt =>
+                            {
+                                txt.Line($"{first.StopLocal:dd/MM/yy}  |  {first.TimeStart} → {first.TimeCompleted}  |  {first.Location}").FontFamily("Inter").SemiBold();
+                                txt.Line($"Method: {first.Method}").FontFamily("Inter");
+                            });
+                            r.ConstantItem(140).AlignRight().Text(t =>
+                            {
+                                t.Span(first.RecordedFm232 ? "RECORDED" : "NOT RECORDED")
+                                 .FontFamily("Inter")
+                                 .SemiBold()
+                                 .FontSize(10)
+                                 .FontColor(first.RecordedFm232 ? Colors.Green.Darken2 : Colors.Red.Medium);
+                            });
+                        });
+
+                        // Table
+                        col.Item().Table(t =>
+                        {
+                            // Column layout tuned for readability
+                            t.ColumnsDefinition(c =>
+                            {
+                                c.ConstantColumn(50);  // Tank
+                                c.ConstantColumn(46);  // Date
+                                c.RelativeColumn(2);   // Location
+                                c.ConstantColumn(40);  // Start
+                                c.ConstantColumn(46);  // Initial
+                                c.ConstantColumn(24);  // UptakeSea
+                                c.ConstantColumn(24);  // IntakePRF
+                                c.ConstantColumn(46);  // Circ/Treated
+                                c.ConstantColumn(24);  // DischSea
+                                c.ConstantColumn(24);  // DischPRF
+                                c.ConstantColumn(46);  // Final
+                                c.ConstantColumn(46);  // Completed
+                                c.ConstantColumn(40);  // Method
+                                c.ConstantColumn(36);  // Depth
+                                c.ConstantColumn(36);  // Dist NL
+                                c.ConstantColumn(30);  // OIC
+                                c.RelativeColumn(3);   // Remarks
+                            });
+
+                            // header row (repeats on new pages)
+                            t.Header(h =>
+                            {
+                                void HeadCell(string s) =>
+                                    h.Cell().Element(HeaderCell).Text(s).FontFamily("Inter").SemiBold();
+                                HeadCell("Tank"); HeadCell("Date"); HeadCell("Location"); HeadCell("Start");
+                                HeadCell("Initial"); HeadCell("UptakeSea"); HeadCell("IntakePRF"); HeadCell("Circ/Treated");
+                                HeadCell("DischSea"); HeadCell("DischPRF"); HeadCell("Final"); HeadCell("Completed");
+                                HeadCell("Method"); HeadCell("Depth"); HeadCell("Dist NL"); HeadCell("OIC"); HeadCell("Remarks");
+
+                                static IContainer HeaderCell(IContainer c) =>
+                                    c.DefaultTextStyle(x => x.FontSize(9))
+                                     .PaddingVertical(4).PaddingHorizontal(3)
+                                     .Background(Colors.Grey.Lighten2).BorderBottom(1).BorderColor(Colors.Grey.Medium);
+                            });
+
+                            // data rows
+                            int idx = 0;
+                            foreach (var r in g)
+                            {
+                                bool even = (idx++ % 2 == 0);
+                                t.Cell().Element(e => RowCell(e, even)).Text(r.TankCode).Style(cellText);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.StopLocal.ToString("dd/MM/yy")).Style(cellText);
+                                t.Cell().Element(e => RowCell(e, even)).Text(r.Location).Style(cellText).WrapAnywhere();
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.TimeStart).Style(cellTextMono);
+
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.Initial.ToString()).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.EstUptakeSea).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.EstIntakeReception).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.EstCirculated).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.EstDischargedSea).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.EstDischargedReception).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.Final.ToString()).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.TimeCompleted).Style(cellTextMono);
+
+                                t.Cell().Element(e => RowCell(e, even)).Text(r.Method).Style(cellText);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.SeaDepth).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignRight().Text(r.DistNearestLand).Style(cellTextMono);
+                                t.Cell().Element(e => RowCell(e, even)).AlignCenter().Text(r.Oic).Style(cellText);
+                                t.Cell().Element(e => RowCell(e, even)).Text(r.Remarks ?? "").Style(cellText).WrapAnywhere();
+                            }
+
+                            static IContainer RowCell(IContainer c, bool even) =>
+                                c.Background(even ? Colors.Grey.Lighten5 : Colors.White)
+                                 .PaddingVertical(2.5f).PaddingHorizontal(3)
+                                 .BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2);
+                        });
+
+                        // space between groups
+                        col.Item().Height(10);
                     }
                 });
             });
-        });
+        }).GeneratePdf();
 
-        var pdf = doc.GeneratePdf();
         return File(pdf, "application/pdf", "fm232.pdf");
     }
+
+
+    // ---- helpers ----
+    
+
+    // ------- small styling helpers
+    static IContainer HeaderCell(IContainer c) =>
+        c.Padding(4).Background(Colors.Grey.Lighten3)
+         .BorderBottom(1).BorderColor(Colors.Grey.Medium)
+         .DefaultTextStyle(TextStyle.Default.SemiBold());
+
+    enum Align { Left, Right, Center }
+    static IContainer RowCell(IContainer c, bool zebra, Align a = Align.Left)
+    {
+        var boxed = c.Background(zebra ? Colors.White : Colors.Grey.Lighten5)
+                      .PaddingVertical(2.5f).PaddingHorizontal(3)
+                      .BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten1);
+
+        return a switch
+        {
+            Align.Right => boxed.AlignRight(),
+            Align.Center => boxed.AlignCenter(),
+            _ => boxed
+        };
+    }
+
+    static string Num(int v) => v == 0 ? "" : v.ToString("0");
+
+    // ------- resilient property readers (omit if not present)
+    static string FirstNonEmpty(params string[] items) =>
+        items.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "";
+
+    static string ReadProp(object? obj, params string[] names)
+    {
+        var val = ReadValue(obj, names);
+        return val?.ToString() ?? "";
+    }
+
+    static object? ReadValue(object? obj, params string[] names)
+    {
+        if (obj == null) return null;
+        var t = obj.GetType();
+        foreach (var n in names)
+        {
+            var p = t.GetProperty(n);
+            if (p == null) continue;
+            var v = p.GetValue(obj);
+            if (v == null) continue;
+            var s = v.ToString();
+            if (!string.IsNullOrWhiteSpace(s)) return v;
+        }
+        return null;
+    }
+
+    static string FormatVolume(object? v)
+    {
+        if (v == null) return "";
+        try
+        {
+            var d = Convert.ToDecimal(v);
+            return $"{d:0} m³";
+        }
+        catch { return v.ToString() ?? ""; }
+    }
+
+
+
+
+    // small helper to avoid "0" / null noise
+    static string Num(decimal? v) => v.HasValue ? v.Value.ToString("0") : "";
 
     private static (DateTime from, DateTime to) NormalizeRange(DateTime? from, DateTime? to)
     {
         var f = (from?.Date ?? DateTime.MinValue.Date);
-
-        DateTime t;
-        if (to.HasValue)
-            t = to.Value.Date.AddDays(1).AddTicks(-1);
-        else
-            t = DateTime.MaxValue;
-
+        DateTime t = to.HasValue ? to.Value.Date.AddDays(1).AddTicks(-1) : DateTime.MaxValue;
         if (t < f) (f, t) = (t, f);
         return (f, t);
     }
 
-    private static string SameOr(string a, string b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? a : $"{a} / {b}";
+    private static string SameOr(string a, string b)
+        => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? a : $"{a} / {b}";
+
     private static string MethodText(Operation op)
     {
         var parts = new List<string>();
@@ -202,6 +394,7 @@ public class IndexModel : PageModel
         if (op.Type == OpType.TR) parts.Add("TR");
         return string.Join("; ", parts);
     }
+
     private static string BuildRemarks(Operation op, ShipProfile prof)
     {
         if (op.Type == OpType.TR) return "TR";
@@ -213,10 +406,11 @@ public class IndexModel : PageModel
         if (!string.IsNullOrWhiteSpace(prof.Custom5Label) && !string.IsNullOrWhiteSpace(op.Custom5)) parts.Add($"{prof.Custom5Label}: {op.Custom5}");
         return string.Join("; ", parts);
     }
+
     private static string Csv(object? o)
     {
         var s = o?.ToString() ?? "";
-        if (s.Contains(",") || s.Contains("\"") || s.Contains("\n"))
+        if (s.Contains(',') || s.Contains('"') || s.Contains('\n'))
             return "\"" + s.Replace("\"", "\"\"") + "\"";
         return s;
     }

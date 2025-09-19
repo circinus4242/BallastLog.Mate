@@ -1,8 +1,8 @@
 using BallastLog.Mate.Data;
 using BallastLog.Mate.Models;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
 
 namespace BallastLog.Mate.Pages.Reports.LogOld;
 
@@ -11,34 +11,74 @@ public class IndexModel : PageModel
     private readonly AppDbContext _db;
     public IndexModel(AppDbContext db) { _db = db; }
 
-    public DateTime? FromDate { get; set; }
-    public DateTime? ToDate { get; set; }
-    public List<(string Date, string Item, string Record)> Rows { get; set; } = new();
+    [BindProperty(SupportsGet = true)] public DateTime? FromDate { get; set; }
+    [BindProperty(SupportsGet = true)] public DateTime? ToDate { get; set; }
 
-    public async Task OnGet(DateTime? fromDate, DateTime? toDate)
+    public List<Row> Rows { get; set; } = new();
+
+    public class Row
     {
-        FromDate = fromDate; ToDate = toDate;
-        var (from, to) = Normalize(fromDate, toDate);
+        public string Date { get; set; } = "";
+        public string Item { get; set; } = "";
+        public string Record { get; set; } = "";
+        public Guid OpId { get; set; }
+        public bool RecordedLog { get; set; }
+        public bool FirstInOp { get; set; }
+    }
 
-        var ops = await _db.Operations.Include(o => o.Legs).ThenInclude(l => l.Tank)
-                    .Where(o => o.StopLocal >= from && o.StopLocal <= to)
-                    .OrderBy(o => o.StopLocal)
-                    .ToListAsync();
+    public async Task OnGet()
+    {
+        var (from, to) = Normalize(FromDate, ToDate);
 
+        var ops = await _db.Operations
+            .Include(o => o.Legs).ThenInclude(l => l.Tank)
+            .Where(o => o.StopLocal >= from && o.StopLocal <= to)
+            .OrderBy(o => o.StopLocal)
+            .ToListAsync();
+
+        // Use DetailsModel logic to build rows per operation
         foreach (var op in ops)
         {
-            var details = new Ops.DetailsModel(_db) { Id = op.Id };
-            await details.OnGet(); // build rows using same logic
-            foreach (var r in details.OldLog)
-                Rows.Add((r.Date, r.Item, r.Record));
+            var details = new BallastLog.Mate.Pages.Ops.DetailsModel(_db) { Id = op.Id };
+            await details.OnGet();
+
+            for (int i = 0; i < details.OldLog.Count; i++)
+            {
+                var r = details.OldLog[i];
+                Rows.Add(new Row
+                {
+                    Date = r.Date,
+                    Item = r.Item,
+                    Record = r.Record,
+                    OpId = op.Id,
+                    RecordedLog = op.RecordedToLogBook,
+                    FirstInOp = (i == 0)
+                });
+            }
         }
     }
 
-    private static (DateTime from, DateTime to) Normalize(DateTime? from, DateTime? to)
+    public async Task<IActionResult> OnPostMarkLog(Guid opId, DateTime? fromDate, DateTime? toDate)
     {
-        var f = (from?.Date ?? DateTime.MinValue.Date);
-        var t = to.HasValue ? to.Value.Date.AddDays(1).AddTicks(-1) : DateTime.MaxValue;
-        if (t < f) (f, t) = (t, f);
-        return (f, t);
+        var op = await _db.Operations.FindAsync(opId);
+        if (op != null)
+        {
+            op.RecordedToLogBook = true;
+            op.UpdatedUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+        return RedirectToPage(new
+        {
+            fromDate = fromDate?.ToString("yyyy-MM-dd"),
+            toDate = toDate?.ToString("yyyy-MM-dd")
+        });
+    }
+
+    private static (DateTime from, DateTime to) Normalize(DateTime? f, DateTime? t)
+    {
+        var from = (f?.Date ?? DateTime.MinValue.Date);
+        var to = t.HasValue ? t.Value.Date.AddDays(1).AddTicks(-1) : DateTime.MaxValue;
+        if (to < from) (from, to) = (to, from);
+        return (from, to);
     }
 }

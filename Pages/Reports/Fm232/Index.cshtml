@@ -51,6 +51,8 @@
             <th>Dist NL</th>
             <th>OIC</th>
             <th>Remarks</th>
+            <th>FM-232</th>
+            <th>Action</th>
         </tr>
     </thead>
     <tbody>
@@ -74,6 +76,20 @@
                 <td>@r.DistNearestLand</td>
                 <td>@r.Oic</td>
                 <td style="white-space:pre-line">@r.Remarks</td>
+
+                <td>@(r.FirstInOp ? (r.RecordedFm232 ? "Recorded" : "Not recorded") : "")</td>
+                <td>
+                    @if (r.FirstInOp && !r.RecordedFm232)
+                    {
+                        <form method="post" style="display:inline">
+                            <input type="hidden" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+                            <input type="hidden" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+                            <input type="hidden" name="tankId" value="@Model.TankId" />
+                            <input type="hidden" name="opId" value="@r.OpId" />
+                            <button class="btn" formaction="?handler=MarkFm232">Mark as recorded</button>
+                        </form>
+                    }
+                </td>
             </tr>
         }
     </tbody>

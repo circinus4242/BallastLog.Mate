@@ -2,10 +2,16 @@ using BallastLog.Mate.Data;
 using BallastLog.Mate.Services;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Infrastructure;
+using QuestPDF.Helpers;
+using QuestPDF.Drawing;
 
 var builder = WebApplication.CreateBuilder(args);
 
 QuestPDF.Settings.License = LicenseType.Community;
+var webRoot = builder.Environment.WebRootPath ?? AppContext.BaseDirectory;
+FontManager.RegisterFont(File.OpenRead(Path.Combine(webRoot, "fonts", "Inter-Regular.ttf")));
+FontManager.RegisterFont(File.OpenRead(Path.Combine(webRoot, "fonts", "Inter-SemiBold.ttf")));
+FontManager.RegisterFont(File.OpenRead(Path.Combine(webRoot, "fonts", "RobotoMono-Regular.ttf")));
 
 builder.WebHost.UseUrls("http://127.0.0.1:7777");
 
