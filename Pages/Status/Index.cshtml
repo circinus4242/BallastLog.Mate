@@ -1,27 +1,135 @@
 ﻿@page
 @model BallastLog.Mate.Pages.Status.IndexModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Status";
 }
-<link rel="stylesheet" href="/site.css" />
 
-<h2>Status</h2>
+<link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 
-<form method="post" asp-page-handler="Export" style="margin-bottom:1rem">
-  <button class="btn">Export CSV</button>
-</form>
+<style>
+    /* tiny color chips for the legend/labels */
+    .legend-dot {
+        width: .8rem;
+        height: .8rem;
+        display: inline-block;
+        border-radius: .2rem;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,.125);
+    }
+</style>
 
-<table class="table">
-  <thead><tr><th>Tank</th><th>Name</th><th>Current</th><th>Max</th><th>Percent filled</th></tr></thead>
-  <tbody>
-  @foreach (var t in Model.Tanks){
-    <tr>
-      <td class="mono">@t.Code</td>
-      <td>@t.Name</td>
-      <td>@t.CurrentCapacity</td>
-      <td>@t.MaxCapacity</td>
-      <td>(@t.CurrentCapacity / @t.MaxCapacity) * 100</td>
-    </tr>
-  }
-  </tbody>
+<h2 class="mb-3">Status</h2>
+
+<!-- Controls row: Export left, thresholds right -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+    <form method="post" asp-page-handler="Export">
+        <button type="submit" class="btn btn-primary">Export CSV</button>
+    </form>
+
+    <form method="get" class="d-flex align-items-center gap-3">
+        <!-- Empty threshold -->
+        <div class="d-flex align-items-center gap-2">
+            <span class="legend-dot bg-info"></span>
+            <div class="text-end small lh-sm">
+                <div>Consider as empty</div>
+                <div>if less than</div>
+            </div>
+            <input id="minPct" name="MinPct" type="number" inputmode="decimal" step="0.1" min="0" max="100"
+                   class="form-control" style="width:7rem"
+                   value="@Model.MinPct.ToString("0.0", CultureInfo.InvariantCulture)" />
+        </div>
+
+        <!-- Full threshold -->
+        <div class="d-flex align-items-center gap-2">
+            <span class="legend-dot bg-warning"></span>
+            <div class="text-end small lh-sm">
+                <div>Consider as full</div>
+                <div>if more than</div>
+            </div>
+            <input id="maxPct" name="MaxPct" type="number" inputmode="decimal" step="0.1" min="0" max="100"
+                   class="form-control" style="width:7rem"
+                   value="@Model.MaxPct.ToString("0.0", CultureInfo.InvariantCulture)" />
+        </div>
+
+        <button type="submit" class="btn btn-secondary">Apply</button>
+    </form>
+</div>
+
+@{
+    // Total bar data
+    var totalPctRaw = Model.TotalMax > 0m ? (Model.TotalCurrent / Model.TotalMax) * 100m : 0m;
+    var totalPct = Math.Clamp(totalPctRaw, 0m, 100m);
+    var totalWidth = totalPct.ToString("0.0", CultureInfo.InvariantCulture) + "%";
+    var totalLabel = $"Total ballast onboard: {Model.TotalCurrent:0.##} m3 ({totalPctRaw.ToString("0.0", CultureInfo.InvariantCulture)}%)";
+    var ariaTotal = Math.Round((double)totalPct, 1);
+}
+
+<!-- Total progress bar -->
+<div class="mb-2">
+    <div class="d-flex justify-content-between align-items-end">
+        <div class="fw-semibold mb-1">@totalLabel</div>
+        <div class="text-muted small mb-1">
+            Max: @Model.TotalMax.ToString("0.##", CultureInfo.InvariantCulture)
+        </div>
+    </div>
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@ariaTotal">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:@totalWidth"></div>
+    </div>
+</div>
+
+<!-- Compact stats -->
+<div class="mb-3 small text-muted d-flex flex-wrap gap-3">
+    <span> Total tanks: <strong class="text-body">@Model.TotalTanks</strong> </span>
+    <span class="d-flex align-items-center gap-1">
+        <span class="legend-dot bg-info"></span>
+        Empty (≤ Min): <strong class="text-body">@Model.TotalEmpty</strong>
+    </span>
+    <span class="d-flex align-items-center gap-1">
+        <span class="legend-dot bg-secondary"></span>+<span class="legend-dot bg-warning"></span>
+        In use (> Min): <strong class="text-body">@Model.TotalInUse</strong>
+    </span>
+</div>
+
+<table class="table table-sm align-middle">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th class="text-end">Current</th>
+            <th class="text-end">Max</th>
+            <th style="width:35%">Percent filled</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var t in Model.Tanks)
+        {
+            var max = (decimal)t.MaxCapacity;
+            var cur = (decimal)t.CurrentCapacity;
+            var pctRaw = max > 0m ? (cur / max) * 100m : 0m;
+            var pct = Math.Clamp(pctRaw, 0m, 100m);
+
+            // Row color based on thresholds
+            string rowClass =
+            pct <= Model.MinPct ? "table-info"
+            : pct >= Model.MaxPct ? "table-warning"
+            : ""; // default
+
+            var width = pct.ToString("0.0", CultureInfo.InvariantCulture) + "%";
+            var label = pctRaw.ToString("0.0\\%", CultureInfo.InvariantCulture);
+            var aria = Math.Round((double)pct, 1);
+            <tr class="@rowClass">
+                <td>@t.Name</td>
+                <td class="text-end">@t.CurrentCapacity</td>
+                <td class="text-end">@t.MaxCapacity</td>
+                <td>
+                    <!-- One line: label + uniform bar -->
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted" style="min-width:3.8rem; text-align:right;">@label</span>
+                        <div class="progress flex-grow-1" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@aria">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:@width"></div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
 </table>

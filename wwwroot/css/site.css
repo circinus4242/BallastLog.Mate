@@ -1,78 +1,100 @@
-html {
-  font-size: 14px;
+﻿html {
+    font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    html {
+        font-size: 16px;
+    }
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
 }
 
-.table {
-    width: 100%;
-    border-collapse: collapse;
+/* ❌ Removed: .btn, .table, .form-control:focus overrides that clashed with Bootswatch */
+
+/* Keep the focus ring only for custom, prefixed controls if you want it */
+.app-focus:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
-    .table th, .table td {
-        padding: .5rem;
-        border-bottom: 1px solid #ddd;
-    }
-
-.bad {
+/* Renamed utilities to avoid Bootstrap collisions */
+.app-bad {
     background: #ffe5e5;
 }
 
-.ok {
+.app-ok {
     background: #f8fff8;
 }
 
-.flex {
+.app-flex {
     display: flex;
     gap: 1rem;
     align-items: center;
 }
 
-.mono {
+.app-mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.small {
+.app-small {
     font-size: .9rem;
     color: #666;
 }
 
-.btn {
+.app-btn {
     padding: .4rem .7rem;
     border: 1px solid #ccc;
     background: #fafafa;
     cursor: pointer;
 }
 
-    .btn:hover {
+    .app-btn:hover {
         background: #f2f2f2;
     }
 
-.input {
+.app-input {
     padding: .3rem .4rem;
     border: 1px solid #ccc;
 }
 
-.tag {
+.app-tag {
     display: inline-block;
     padding: .1rem .4rem;
     border-radius: .3rem;
     background: #eee;
+}
+
+/* Custom progress bar (prefixed to avoid Bootstrap .progress/.progress-bar) */
+.app-pb {
+    position: relative;
+    height: 0.9rem;
+    background: #eee;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.app-pb-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #5cb85c, #4cae4c);
+    transition: width 200ms ease;
+}
+
+.app-pb-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    color: #111;
+    mix-blend-mode: multiply;
 }
